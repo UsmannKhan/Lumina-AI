@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware 
 from .models import Base
 from .database import engine
-from .routes import users, chats, messages, auth
+from .routes import users, chats, messages, auth, flashcards
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,6 +23,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chats.router)
 app.include_router(messages.router)
+app.include_router(flashcards.router)
 
 
 

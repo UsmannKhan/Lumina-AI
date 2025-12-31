@@ -117,6 +117,11 @@ class ApiClient {
       body: JSON.stringify({ input, chat_id: chatId }),
     });
   }
+
+  // Flashcard endpoints
+  async getFlashcards(chatId: number): Promise<FlashcardsResponse> {
+    return this.request<FlashcardsResponse>(`/flashcards/${chatId}`);
+  }
 }
 
 export const api = new ApiClient();

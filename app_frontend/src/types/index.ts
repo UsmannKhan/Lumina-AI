@@ -42,3 +42,15 @@ export interface CreateMessageResponse {
   chat_id: number;
   user_id: number;
 }
+
+export interface Flashcard {
+  question: string;
+  answer: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
+export interface FlashcardsResponse {
+  chat_id: number;
+  video_title: string;
+  flashcards: Flashcard[];
+}

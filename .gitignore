@@ -1,0 +1,39 @@
+# Environment files
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+dist/
+
+# Database
+*.db
+*.sqlite
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cookies
+cookies.txt
+
+# Misc
+*.log
+
+# Build outputs
+build/
+dist/
+*.tgz

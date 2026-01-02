@@ -44,13 +44,16 @@ export interface CreateMessageResponse {
 }
 
 export interface Flashcard {
+  id: number;
   question: string;
   answer: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  review_count: number;
 }
 
 export interface FlashcardsResponse {
   chat_id: number;
   video_title: string;
   flashcards: Flashcard[];
+  generated_now: boolean;
 }

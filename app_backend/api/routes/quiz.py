@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Union
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -20,8 +20,8 @@ router = APIRouter(
 class MCQQuestion(BaseModel):
     type: str = "mcq"
     question: str
-    options: List[str]  # 4 options
-    correct_index: int  # 0-3
+    options: List[str]
+    correct_index: int
     explanation: str
 
 
@@ -32,34 +32,33 @@ class TrueFalseQuestion(BaseModel):
     explanation: str
 
 
-class FillBlankQuestion(BaseModel):
-    type: str = "fill_blank"
-    question: str  # Contains _____ for blanks
-    correct_answers: List[str]  # Acceptable answers
-    explanation: str
-
-
-QuizQuestion = Union[MCQQuestion, TrueFalseQuestion, FillBlankQuestion]
+class ShortAnswerQuestion(BaseModel):
+    type: str = "short_answer"
+    question: str
+    ideal_answer: str  # For reference, AI will grade flexibly
+    key_points: List[str]  # Key concepts that should be mentioned
 
 
 class QuizResponse(BaseModel):
     chat_id: int
     video_title: str
-    questions: List[dict]  # Mixed question types
+    questions: List[dict]
 
 
-class AnswerSubmission(BaseModel):
-    question_index: int
-    answer: Union[int, bool, str]  # MCQ index, T/F bool, or text
+class GradeRequest(BaseModel):
+    question: str
+    ideal_answer: str
+    key_points: List[str]
+    user_answer: str
 
 
-class QuizResult(BaseModel):
+class GradeResponse(BaseModel):
     correct: bool
-    correct_answer: Union[int, bool, str, List[str]]
-    explanation: str
+    score: int  # 0-100
+    feedback: str
 
 
-# ============== Prompt ==============
+# ============== Prompts ==============
 
 def get_quiz_prompt(transcript: str) -> str:
     return f"""Analyze this video transcript and create a quiz with mixed question types.
@@ -67,15 +66,17 @@ def get_quiz_prompt(transcript: str) -> str:
 CREATE EXACTLY:
 - 4 multiple choice questions (MCQ)
 - 3 true/false questions
-- 3 fill-in-the-blank questions
+- 3 short answer questions
 
 RULES:
 - Questions should test understanding of key concepts
 - MCQ should have 4 options with only 1 correct answer
 - True/False statements should be clear, not tricky
-- Fill-in-blank should have 1-2 blanks represented by _____
+- Short answer questions should require 1-3 sentence responses
 - All questions should be answerable from the transcript
-- Include brief explanations for each answer
+- Include brief explanations for MCQ and T/F answers
+- For short answer, include the ideal answer and 2-4 key points to look for
+- Never start a question or the brief explanation with "According to the transcript" or similar phrases, rather use "Based on the content" or "According to the video" etc. if really needed.
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -94,11 +95,11 @@ Return ONLY valid JSON in this exact format:
       "explanation": "Seated curls pre-stretch the hamstring, leading to ~1.5x more growth."
     }}
   ],
-  "fill_blank": [
+  "short_answer": [
     {{
-      "question": "The _____ hamstring curl pre-stretches the muscle for better growth.",
-      "correct_answers": ["seated"],
-      "explanation": "Seated position puts the hamstring in a stretched position at the start."
+      "question": "Explain why seated hamstring curls are preferred over lying curls.",
+      "ideal_answer": "Seated hamstring curls are preferred because the seated position pre-stretches the hamstring at the start of the movement. This pre-stretch leads to approximately 1.5x more muscle growth compared to lying curls.",
+      "key_points": ["pre-stretch", "seated position", "more growth", "1.5x"]
     }}
   ]
 }}
@@ -109,13 +110,41 @@ TRANSCRIPT:
 JSON:"""
 
 
+def get_grading_prompt(question: str, ideal_answer: str, key_points: List[str], user_answer: str) -> str:
+    return f"""Grade this short answer response.
+
+QUESTION: {question}
+
+IDEAL ANSWER: {ideal_answer}
+
+KEY POINTS TO LOOK FOR: {', '.join(key_points)}
+
+USER'S ANSWER: {user_answer}
+
+GRADING RULES:
+- Be lenient with wording - focus on concepts in the video transcript, not exact phrasing
+- Give partial credit for partially correct answers
+- Score from 0-100
+- 70+ is considered "correct"
+- Provide brief, encouraging feedback
+- Primarily match the answer against the teachings and the concepts from the video transcript and not general knowledge so if a concept or an answer is generally also correct but not mentioned, or a different technique, concept or answer is in the transcript, do not award a lot of points for it and explain to the user like "Based on the video content...".
+
+Return ONLY valid JSON:
+{{
+  "score": 85,
+  "correct": true,
+  "feedback": "Good answer! You correctly identified that..."
+}}
+
+JSON:"""
+
+
 # ============== Parser ==============
 
 def parse_quiz_response(response_text: str) -> List[dict]:
     """Parse AI response into list of questions"""
     text = response_text.strip()
     
-    # Remove markdown code blocks
     if '```json' in text:
         text = text.split('```json')[1].split('```')[0]
     elif '```' in text:
@@ -126,8 +155,6 @@ def parse_quiz_response(response_text: str) -> List[dict]:
                 text = text[4:]
     
     text = text.strip()
-    
-    # Find JSON object
     start = text.find('{')
     end = text.rfind('}') + 1
     
@@ -137,7 +164,6 @@ def parse_quiz_response(response_text: str) -> List[dict]:
     json_str = text[start:end]
     data = json.loads(json_str)
     
-    # Combine all questions into a single list with type markers
     questions = []
     
     for q in data.get('mcq', []):
@@ -157,22 +183,42 @@ def parse_quiz_response(response_text: str) -> List[dict]:
             'explanation': q['explanation']
         })
     
-    for q in data.get('fill_blank', []):
+    for q in data.get('short_answer', []):
         questions.append({
-            'type': 'fill_blank',
+            'type': 'short_answer',
             'question': q['question'],
-            'correct_answers': q['correct_answers'],
-            'explanation': q['explanation']
+            'ideal_answer': q['ideal_answer'],
+            'key_points': q['key_points']
         })
     
     if not questions:
         raise ValueError("No valid questions found")
     
-    # Shuffle questions so types are mixed
     import random
     random.shuffle(questions)
     
     return questions
+
+
+def parse_grade_response(response_text: str) -> dict:
+    """Parse AI grading response"""
+    text = response_text.strip()
+    
+    if '```json' in text:
+        text = text.split('```json')[1].split('```')[0]
+    elif '```' in text:
+        parts = text.split('```')
+        if len(parts) >= 2:
+            text = parts[1]
+    
+    text = text.strip()
+    start = text.find('{')
+    end = text.rfind('}') + 1
+    
+    if start == -1 or end <= start:
+        raise ValueError("No JSON object found")
+    
+    return json.loads(text[start:end])
 
 
 # ============== Endpoints ==============
@@ -199,35 +245,10 @@ def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get
         
         questions = parse_quiz_response(response.text)
         
-        # Return questions WITHOUT correct answers (for client-side quiz)
-        # We'll strip answers for the response
-        client_questions = []
-        for q in questions:
-            if q['type'] == 'mcq':
-                client_questions.append({
-                    'type': 'mcq',
-                    'question': q['question'],
-                    'options': q['options']
-                })
-            elif q['type'] == 'true_false':
-                client_questions.append({
-                    'type': 'true_false',
-                    'statement': q['statement']
-                })
-            elif q['type'] == 'fill_blank':
-                client_questions.append({
-                    'type': 'fill_blank',
-                    'question': q['question']
-                })
-        
-        # Store full questions in memory/cache for answer checking
-        # For simplicity, we'll return everything and let frontend handle it
-        # In production, you'd store this server-side
-        
         return {
             "chat_id": chat_id,
             "video_title": chat.session_name,
-            "questions": questions  # Frontend will hide answers until submission
+            "questions": questions
         }
         
     except json.JSONDecodeError as e:
@@ -236,16 +257,28 @@ def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 
-@router.post("/{chat_id}/check")
-def check_answer(
-    chat_id: int, 
-    submission: AnswerSubmission,
-    user: user_dependency, 
-    db: Session = Depends(get_db)
-):
-    """
-    Check a single answer (optional endpoint if you want server-side validation)
-    For now, since we return all answers, this is optional.
-    Frontend can validate locally.
-    """
-    pass  # Implement if needed for server-side validation
+@router.post("/grade", response_model=GradeResponse)
+def grade_short_answer(request: GradeRequest, user: user_dependency):
+    """Grade a short answer response using AI"""
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=get_grading_prompt(
+                request.question,
+                request.ideal_answer,
+                request.key_points,
+                request.user_answer
+            )
+        )
+        
+        result = parse_grade_response(response.text)
+        
+        return {
+            "correct": result.get('correct', result.get('score', 0) >= 70),
+            "score": result.get('score', 0),
+            "feedback": result.get('feedback', 'Answer evaluated.')
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to grade answer: {str(e)}")

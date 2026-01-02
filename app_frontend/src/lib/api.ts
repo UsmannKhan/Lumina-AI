@@ -129,7 +129,7 @@
 
 
 
-import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse } from '@/types';
+import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -257,6 +257,18 @@ class ApiClient {
     // Delete existing, then get (which will generate new ones)
     await this.deleteFlashcards(chatId);
     return this.getFlashcards(chatId);
+  }
+
+  // Quiz
+  async getQuiz(chatId: number): Promise<QuizResponse> {
+    return this.request<QuizResponse>(`/quiz/${chatId}`);
+  }
+
+  async gradeShortAnswer(data: GradeRequest): Promise<GradeResponse> {
+    return this.request<GradeResponse>('/quiz/grade', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

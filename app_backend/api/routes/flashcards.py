@@ -271,6 +271,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from .. import models
+from .. import schemas
 from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
@@ -283,20 +284,20 @@ router = APIRouter(
 )
 
 
-class FlashcardOut(BaseModel):
-    id: int
-    question: str
-    answer: str
-    difficulty: str
+# class FlashcardOut(BaseModel):
+#     id: int
+#     question: str
+#     answer: str
+#     difficulty: str
     
-    class Config:
-        from_attributes = True
+#     class Config:
+#         from_attributes = True
 
 
-class FlashcardsResponse(BaseModel):
-    chat_id: int
-    video_title: str
-    flashcards: List[FlashcardOut]
+# class FlashcardsResponse(BaseModel):
+#     chat_id: int
+#     video_title: str
+#     flashcards: List[FlashcardOut]
 
 
 def get_flashcard_prompt(transcript: str) -> str:
@@ -392,7 +393,7 @@ def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -
     return created_flashcards
 
 
-@router.get("/{chat_id}", response_model=FlashcardsResponse)
+@router.get("/{chat_id}", response_model=schemas.FlashcardsResponse)
 def get_flashcards(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
     """Get flashcards for a video. Generates them if they don't exist."""
     

@@ -135,8 +135,8 @@ export default function EmptyState({ onNewChat }: EmptyStateProps) {
         </h1>
         
         <p className="text-lg text-void-400 mb-8 max-w-md mx-auto leading-relaxed">
-          Transform any YouTube video into an interactive experience with intelligent insights. 
-          Get detailed analysis, notes, and have conversations about the content while you watch.
+          Transform any YouTube video into an interactive learning experience with intelligent insights. 
+          Get detailed analysis, notes, and have conversations about the content or generate flashcards and quizzes to reinforce your learning while you watch.
         </p>
 
         <Button

@@ -3,6 +3,7 @@ from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from .. import models
+from .. import schemas
 from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
@@ -17,45 +18,45 @@ router = APIRouter(
 
 # ============== Schemas ==============
 
-class MCQQuestion(BaseModel):
-    type: str = "mcq"
-    question: str
-    options: List[str]
-    correct_index: int
-    explanation: str
+# class MCQQuestion(BaseModel):
+#     type: str = "mcq"
+#     question: str
+#     options: List[str]
+#     correct_index: int
+#     explanation: str
 
 
-class TrueFalseQuestion(BaseModel):
-    type: str = "true_false"
-    statement: str
-    correct_answer: bool
-    explanation: str
+# class TrueFalseQuestion(BaseModel):
+#     type: str = "true_false"
+#     statement: str
+#     correct_answer: bool
+#     explanation: str
 
 
-class ShortAnswerQuestion(BaseModel):
-    type: str = "short_answer"
-    question: str
-    ideal_answer: str  # For reference, AI will grade flexibly
-    key_points: List[str]  # Key concepts that should be mentioned
+# class ShortAnswerQuestion(BaseModel):
+#     type: str = "short_answer"
+#     question: str
+#     ideal_answer: str  # For reference, AI will grade flexibly
+#     key_points: List[str]  # Key concepts that should be mentioned
 
 
-class QuizResponse(BaseModel):
-    chat_id: int
-    video_title: str
-    questions: List[dict]
+# class QuizResponse(BaseModel):
+#     chat_id: int
+#     video_title: str
+#     questions: List[dict]
 
 
-class GradeRequest(BaseModel):
-    question: str
-    ideal_answer: str
-    key_points: List[str]
-    user_answer: str
+# class GradeRequest(BaseModel):
+#     question: str
+#     ideal_answer: str
+#     key_points: List[str]
+#     user_answer: str
 
 
-class GradeResponse(BaseModel):
-    correct: bool
-    score: int  # 0-100
-    feedback: str
+# class GradeResponse(BaseModel):
+#     correct: bool
+#     score: int  # 0-100
+#     feedback: str
 
 
 # ============== Prompts ==============
@@ -223,7 +224,7 @@ def parse_grade_response(response_text: str) -> dict:
 
 # ============== Endpoints ==============
 
-@router.get("/{chat_id}", response_model=QuizResponse)
+@router.get("/{chat_id}", response_model=schemas.QuizResponse)
 def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
     """Generate a quiz for a video"""
     
@@ -257,8 +258,8 @@ def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 
-@router.post("/grade", response_model=GradeResponse)
-def grade_short_answer(request: GradeRequest, user: user_dependency):
+@router.post("/grade", response_model=schemas.GradeResponse)
+def grade_short_answer(request: schemas.GradeRequest, user: user_dependency):
     """Grade a short answer response using AI"""
     
     try:

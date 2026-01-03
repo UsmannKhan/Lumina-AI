@@ -235,7 +235,8 @@ NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensiv
 2. List the **Key Takeaways** (main points the viewer should remember)
 3. Provide **Detailed Notes** organized by topic/section
 4. Include any **Action Items** or practical tips mentioned
-5. Note any **Resources/Links** mentioned (if any)
+5. Note any **Resources/Links** mentioned (if any). This DOES NOT include unrelated sponsors of the video.
+6. DO NOT include any sponsors, promotional content, patreon links, or unrelated information in any section.
 
 ## Formatting:
 - Use clear headings
@@ -381,6 +382,11 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
     # Delete all messages associated with this chat first
     db.query(models.Message).filter(
         models.Message.chat_id == chat_id
+    ).delete()
+
+    # Delete all flashcards associated with this chat first
+    db.query(flashcards.Flashcard).filter(
+        flashcards.Flashcard.chat_id == chat_id
     ).delete()
     
     # Then delete the chat

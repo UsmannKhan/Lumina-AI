@@ -1,402 +1,3 @@
-# from typing import List
-# from fastapi import HTTPException, Depends
-# from sqlalchemy.orm import Session 
-# from starlette import status
-# from .. import models
-# from .. import schemas
-# from fastapi import APIRouter
-# from ..database import get_db
-# from ..config import user_dependency
-# from youtube_transcript_api import YouTubeTranscriptApi
-# from ..gemini_client import client
-# import json
-
-# router = APIRouter(
-#     prefix='/chats',
-#     tags=['Chats']
-# )
-
-# def get_videoid(url):
-#       if '=' in url:
-#         parts = url.split('=')
-#         if len(parts) > 1:  # Check if there are parts after the first '='
-#           video_id = parts[1]
-#           if '&' in video_id:  # Check for additional parameters after video ID
-#             video_id = video_id.split('&')[0]  # Extract only video ID
-#           return video_id
-#       return ""
-
-# @router.post("/")
-# def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
-#     video_id = get_videoid(chat.youtube_link)
-
-#     print ("Video ID:", video_id)
-
-#     transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-
-#     print("Transcript Data:", json.dumps(transcript_data, indent=2))
-
-#     transcript = " ".join(segment['text'] for segment in transcript_data)
-
-#     print("Transcript Text:", transcript)
-
-#     response = client.models.generate_content(
-#       model="gemini-2.5-flash",
-#       contents=f"Please provide notes and analysis on the following Youtube transcript: {transcript}",
-#     )
-#     notes = response.text
-#     response2 = client.models.generate_content(
-#       model="gemini-2.5-flash",
-#       contents=f"Please provide a short descriptive title for the following notes. Give the answer directly: {notes}",
-#     )
-#     session_name = response2.text
-
-
-#     new_chat = models.Chat(
-#         youtube_id = video_id,
-#         youtube_transcript = transcript,
-#         prompt = "Please provide notes and analysis on the following Youtube transcript",
-#         notes = notes,
-#         user_id = user['id'],
-#         session_name = session_name
-#     )
-#     db.add(new_chat)
-#     db.commit()
-#     db.refresh(new_chat)
-#     return {
-#         "id": new_chat.id,
-#         "video_id": video_id,
-#         "notes": notes,
-#         "transcript": transcript,
-#         "session_name": session_name
-#     }
-
-# @router.get("/", response_model=List[schemas.ChatOut])
-# def get_user_chats(user: user_dependency, db:Session = Depends(get_db)):
-#   chats = db.query(models.Chat).filter(models.Chat.user_id == user['id']).all()
-
-#   return chats
-
-# @router.delete("/{chat_id}")
-# def delete_user_chat(chat_id: int, user: user_dependency, db:Session = Depends(get_db)):
-#   chat = db.query(models.Chat).filter(
-#     models.Chat.id == chat_id,
-#     models.Chat.user_id == user['id']
-#   ).first()
-#   if chat:
-#     db.delete(chat)
-#     db.commit()
-#   return chat
-
-
-
-# from typing import List
-# from fastapi import HTTPException, Depends
-# from sqlalchemy.orm import Session 
-# from starlette import status
-# from .. import models
-# from .. import schemas
-# from fastapi import APIRouter
-# from ..database import get_db
-# from ..config import user_dependency
-# from ..gemini_client import client
-# import requests
-# import json
-# import os
-
-# router = APIRouter(
-#     prefix='/chats',
-#     tags=['Chats']
-# )
-
-# # RapidAPI credentials
-# RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-# RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
-
-
-# # def get_videoid(url):
-# #     if '=' in url:
-# #         parts = url.split('=')
-# #         if len(parts) > 1:
-# #             video_id = parts[1]
-# #             if '&' in video_id:
-# #                 video_id = video_id.split('&')[0]
-# #             return video_id
-# #     return ""
-
-
-# # def get_transcript(video_url: str) -> str:
-# #     """Get transcript using RapidAPI YouTube Transcript service"""
-# #     url = "https://youtube-transcripts.p.rapidapi.com/youtube/transcript"
-    
-# #     querystring = {
-# #         "url": video_url,
-# #         "text": "true"  # Get plain text transcript
-# #     }
-    
-# #     headers = {
-# #         "x-rapidapi-key": RAPIDAPI_KEY,
-# #         "x-rapidapi-host": RAPIDAPI_HOST
-# #     }
-    
-# #     response = requests.get(url, headers=headers, params=querystring)
-    
-# #     if response.status_code == 429:
-# #         raise HTTPException(status_code=429, detail="Rate limit reached. Please try again later.")
-    
-# #     if response.status_code != 200:
-# #         raise HTTPException(status_code=response.status_code, detail=f"Failed to fetch transcript: {response.text}")
-    
-# #     data = response.json()
-    
-# #     # Handle different response formats
-# #     if "content" in data:
-# #         content = data["content"]
-# #         # If content is a list of segments
-# #         if isinstance(content, list):
-# #             return " ".join(segment.get("text", "") for segment in content)
-# #         # If content is already text
-# #         elif isinstance(content, str):
-# #             return content
-    
-# #     # If response is directly the transcript text
-# #     if isinstance(data, str):
-# #         return data
-    
-# #     raise HTTPException(status_code=500, detail="Unexpected response format from transcript API")
-
-
-# # @router.post("/")
-# # def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
-# #     video_id = get_videoid(chat.youtube_link)
-
-# #     print("Video ID:", video_id)
-
-# #     transcript = get_transcript(chat.youtube_link)
-
-# #     print("Transcript length:", len(transcript))
-
-# #     response = client.models.generate_content(
-# #         model="gemini-2.5-flash",
-# #         contents=f"Please provide notes and analysis on the following Youtube transcript: {transcript}",
-# #     )
-# #     notes = response.text
-    
-# #     response2 = client.models.generate_content(
-# #         model="gemini-2.5-flash",
-# #         contents=f"Please provide a short descriptive title for the following notes. Give the answer directly: {notes}",
-# #     )
-# #     session_name = response2.text
-
-# #     new_chat = models.Chat(
-# #         youtube_id=video_id,
-# #         youtube_transcript=transcript,
-# #         prompt="Please provide notes and analysis on the following Youtube transcript",
-# #         notes=notes,
-# #         user_id=user['id'],
-# #         session_name=session_name
-# #     )
-# #     db.add(new_chat)
-# #     db.commit()
-# #     db.refresh(new_chat)
-    
-# #     return {
-# #         "id": new_chat.id,
-# #         "video_id": video_id,
-# #         "notes": notes,
-# #         "transcript": transcript,
-# #         "session_name": session_name
-# #     }
-
-
-# # @router.get("/", response_model=List[schemas.ChatOut])
-# # def get_user_chats(user: user_dependency, db: Session = Depends(get_db)):
-# #     chats = db.query(models.Chat).filter(models.Chat.user_id == user['id']).all()
-# #     return chats
-
-
-# # @router.delete("/{chat_id}")
-# # def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-# #     chat = db.query(models.Chat).filter(
-# #         models.Chat.id == chat_id,
-# #         models.Chat.user_id == user['id']
-# #     ).first()
-# #     if chat:
-# #         db.delete(chat)
-# #         db.commit()
-# #     return chat
-
-
-# # Prompts
-# NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensive, detailed, and well-structured notes.
-
-# ## Instructions:
-# 1. Start with a **Summary**
-# 2. List the **Key Takeaways** (main points the viewer should remember)
-# 3. Provide **Detailed Notes** organized by topic/section
-# 4. Include any **Action Items** or practical tips mentioned
-# 5. Note any **Resources/Links** mentioned (if any). This DOES NOT include unrelated sponsors of the video.
-# 6. DO NOT include any sponsors, promotional content, patreon links, or unrelated information in any section.
-
-# ## Formatting:
-# - Use clear headings
-# - Keep it scannable and easy to read
-# - Highlight important terms or concepts in bold
-# - Do not start your response with opening phrases like "Here are comprehensive, well-structured notes from the YouTube video transcript:"
-
-# ## Transcript:
-# {transcript}
-# """
-
-# TITLE_PROMPT = """Generate a short, descriptive title (5-10 words max) for these notes. 
-# Return ONLY the title, nothing else.
-
-# Notes:
-# {notes}
-# """
-
-
-# def get_videoid(url):
-#     if '=' in url:
-#         parts = url.split('=')
-#         if len(parts) > 1:
-#             video_id = parts[1]
-#             if '&' in video_id:
-#                 video_id = video_id.split('&')[0]
-#             return video_id
-#     return ""
-
-
-# def get_transcript(video_url: str) -> str:
-#     """Get transcript using RapidAPI YouTube Transcript service"""
-#     url = "https://youtube-transcripts.p.rapidapi.com/youtube/transcript"
-    
-#     querystring = {
-#         "url": video_url,
-#         "text": "false"
-#     }
-    
-#     headers = {
-#         "x-rapidapi-key": RAPIDAPI_KEY,
-#         "x-rapidapi-host": RAPIDAPI_HOST
-#     }
-    
-#     response = requests.get(url, headers=headers, params=querystring)
-    
-#     if response.status_code == 429:
-#         raise HTTPException(status_code=429, detail="Rate limit reached. Please try again later.")
-    
-#     if response.status_code != 200:
-#         raise HTTPException(status_code=response.status_code, detail=f"Failed to fetch transcript: {response.text}")
-    
-#     print("Transcript API response:", response.json())
-
-#     data = response.json()
-    
-#     if "content" in data:
-#         content = data["content"]
-#         if isinstance(content, list):
-#             return " ".join(segment.get("text", "") for segment in content)
-#         elif isinstance(content, str):
-#             return content
-    
-#     if isinstance(data, str):
-#         return data
-    
-#     raise HTTPException(status_code=500, detail="Unexpected response format from transcript API")
-
-
-# @router.post("/")
-# def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
-#     video_id = get_videoid(chat.youtube_link)
-
-#     print("Video ID:", video_id)
-
-#     transcript = get_transcript(chat.youtube_link)
-
-#     print("Transcript length:", len(transcript))
-
-#     # Generate notes with improved prompt
-#     response = client.models.generate_content(
-#         model="gemini-2.5-flash",
-#         contents=NOTES_PROMPT.format(transcript=transcript),
-#     )
-#     notes = response.text
-    
-#     # Generate title
-#     response2 = client.models.generate_content(
-#         model="gemini-2.5-flash",
-#         contents=TITLE_PROMPT.format(notes=notes),
-#     )
-#     session_name = response2.text.strip()
-
-#     new_chat = models.Chat(
-#         youtube_id=video_id,
-#         youtube_transcript=transcript,
-#         prompt=NOTES_PROMPT.format(transcript="[transcript]"),
-#         notes=notes,
-#         user_id=user['id'],
-#         session_name=session_name
-#     )
-#     db.add(new_chat)
-#     db.commit()
-#     db.refresh(new_chat)
-    
-#     return {
-#         "id": new_chat.id,
-#         "video_id": video_id,
-#         "notes": notes,
-#         "transcript": transcript,
-#         "session_name": session_name
-#     }
-
-
-# @router.get("/", response_model=List[schemas.ChatOut])
-# def get_user_chats(user: user_dependency, db: Session = Depends(get_db)):
-#     chats = db.query(models.Chat).filter(models.Chat.user_id == user['id']).all()
-#     return chats
-
-
-# # @router.delete("/{chat_id}")
-# # def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-# #     chat = db.query(models.Chat).filter(
-# #         models.Chat.id == chat_id,
-# #         models.Chat.user_id == user['id']
-# #     ).first()
-# #     if chat:
-# #         db.delete(chat)
-# #         db.commit()
-# #     return chat
-
-# @router.delete("/{chat_id}")
-# def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-#     chat = db.query(models.Chat).filter(
-#         models.Chat.id == chat_id,
-#         models.Chat.user_id == user['id']
-#     ).first()
-    
-#     if not chat:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="Chat not found"
-#         )
-    
-#     # Delete all messages associated with this chat first
-#     db.query(models.Message).filter(
-#         models.Message.chat_id == chat_id
-#     ).delete()
-
-#     # Delete all flashcards associated with this chat first
-#     db.query(flashcards.Flashcard).filter(
-#         flashcards.Flashcard.chat_id == chat_id
-#     ).delete()
-    
-#     # Then delete the chat
-#     db.delete(chat)
-#     db.commit()
-
-
-
 from typing import List
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session 
@@ -430,16 +31,20 @@ NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensiv
 4. Include any **Action Items** or practical tips mentioned
 5. Note any **Resources/Links** mentioned (if any). This DOES NOT include unrelated sponsors of the video.
 6. DO NOT include any sponsors, promotional content, patreon links, or unrelated information in any section.
+7. End with a **Key Concepts** section listing all the main topics/concepts covered
 
 ## Formatting:
 - Use clear headings
 - Keep it scannable and easy to read
 - Highlight important terms or concepts in bold
 - Do not start your response with opening phrases like "Here are comprehensive, well-structured notes from the YouTube video transcript:"
+- For the Key Concepts section, use this EXACT format for each concept:
+  - **[Concept Title]** (MM:SS - MM:SS): Brief one-line description
 
-## Transcript:
-{transcript}
+## Transcript (with timestamps):
+{timed_transcript}
 """
+
 
 TITLE_PROMPT = """Generate a short, descriptive title (4-6 words max) for these notes. 
 Return ONLY the title, nothing else.
@@ -447,6 +52,49 @@ Return ONLY the title, nothing else.
 Notes:
 {notes}
 """
+
+
+def parse_key_concepts(notes: str) -> list:
+    """
+    Parse key concepts from the notes.
+    Expected format: - **[Concept Title]** (MM:SS - MM:SS): Brief description
+    """
+    import re
+    
+    concepts = []
+    
+    # Look for the Key Concepts section
+    key_concepts_match = re.search(r'##\s*Key Concepts.*?(?=##|\Z)', notes, re.DOTALL | re.IGNORECASE)
+    if not key_concepts_match:
+        return concepts
+    
+    key_concepts_section = key_concepts_match.group()
+    
+    # Pattern: - **[Title]** (MM:SS - MM:SS): Description
+    # Also handles variations like **Title** or just Title
+    pattern = r'-\s*\*\*\[?([^\]]*?)\]?\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n-|\n\n|\Z)'
+    
+    matches = re.findall(pattern, key_concepts_section, re.DOTALL)
+    
+    for match in matches:
+        title, start_str, end_str, description = match
+        
+        # Convert MM:SS to seconds
+        def time_to_seconds(time_str):
+            parts = time_str.strip().split(':')
+            if len(parts) == 2:
+                return int(parts[0]) * 60 + int(parts[1])
+            return 0
+        
+        concepts.append({
+            'title': title.strip(),
+            'description': description.strip(),
+            'start_time': time_to_seconds(start_str),
+            'end_time': time_to_seconds(end_str),
+            'importance': 2  # Default importance
+        })
+    
+    return concepts
 
 
 def get_videoid(url):
@@ -458,6 +106,7 @@ def get_videoid(url):
                 video_id = video_id.split('&')[0]
             return video_id
     return ""
+
 
 
 def get_transcript_data(video_url: str) -> dict:
@@ -535,10 +184,23 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
     print("Transcript length:", len(plain_text))
     print("Timed segments count:", len(timed_segments))
 
-    # Generate notes with improved prompt
+    # Format timed transcript for AI with timestamps
+    def format_timed_transcript(segments):
+        """Format segments as: [MM:SS] text"""
+        formatted = []
+        for seg in segments:
+            start = seg.get('start', 0)
+            mins = int(start // 60)
+            secs = int(start % 60)
+            formatted.append(f"[{mins:02d}:{secs:02d}] {seg.get('text', '')}")
+        return "\n".join(formatted)
+    
+    timed_transcript_text = format_timed_transcript(timed_segments) if timed_segments else plain_text
+
+    # Generate notes with improved prompt (using timed transcript)
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=NOTES_PROMPT.format(transcript=plain_text),
+        contents=NOTES_PROMPT.format(timed_transcript=timed_transcript_text),
     )
     notes = response.text
     
@@ -553,7 +215,7 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
         youtube_id=video_id,
         youtube_transcript=plain_text,
         youtube_transcript_timed=json.dumps(timed_segments) if timed_segments else None,
-        prompt=NOTES_PROMPT.format(transcript="[transcript]"),
+        prompt=NOTES_PROMPT.format(timed_transcript="[transcript]"),
         notes=notes,
         user_id=user['id'],
         session_name=session_name
@@ -562,14 +224,40 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
     db.commit()
     db.refresh(new_chat)
     
+    # Parse and save key concepts from notes
+    concepts_data = parse_key_concepts(notes)
+    saved_concepts = []
+    for concept in concepts_data:
+        key_concept = models.KeyConcept(
+            chat_id=new_chat.id,
+            title=concept['title'],
+            description=concept['description'],
+            start_time=concept['start_time'],
+            end_time=concept['end_time'],
+            importance=concept['importance']
+        )
+        db.add(key_concept)
+        saved_concepts.append({
+            'title': concept['title'],
+            'description': concept['description'],
+            'start_time': concept['start_time'],
+            'end_time': concept['end_time']
+        })
+    
+    if concepts_data:
+        db.commit()
+        print(f"Saved {len(concepts_data)} key concepts")
+    
     return {
         "id": new_chat.id,
         "video_id": video_id,
         "notes": notes,
         "transcript": plain_text,
         "transcript_timed": timed_segments,
-        "session_name": session_name
+        "session_name": session_name,
+        "key_concepts": saved_concepts
     }
+
 
 
 @router.get("/", response_model=List[schemas.ChatOut])
@@ -601,6 +289,11 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
         models.Flashcard.chat_id == chat_id
     ).delete()
     
+    # Delete all key concepts associated with this chat
+    db.query(models.KeyConcept).filter(
+        models.KeyConcept.chat_id == chat_id
+    ).delete()
+    
     # Delete the chat
     db.delete(chat)
     db.commit()
@@ -608,5 +301,33 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
     return {"message": "Chat deleted successfully"}
 
 
-
-
+@router.get("/{chat_id}/concepts")
+def get_chat_concepts(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
+    """Get all key concepts for a chat"""
+    # Verify ownership
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    concepts = db.query(models.KeyConcept).filter(
+        models.KeyConcept.chat_id == chat_id
+    ).order_by(models.KeyConcept.start_time).all()
+    
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "description": c.description,
+            "start_time": c.start_time,
+            "end_time": c.end_time,
+            "importance": c.importance
+        }
+        for c in concepts
+    ]

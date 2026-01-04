@@ -1,270 +1,3 @@
-# from typing import List
-# from fastapi import HTTPException, Depends
-# from sqlalchemy.orm import Session
-# from pydantic import BaseModel
-# from .. import models
-# from fastapi import APIRouter
-# from ..database import get_db
-# from ..config import user_dependency
-# from ..gemini_client import client
-# import json
-
-# router = APIRouter(
-#     prefix='/flashcards',
-#     tags=['Flashcards']
-# )
-
-
-# # Response schema
-# class Flashcard(BaseModel):
-#     question: str
-#     answer: str
-#     difficulty: str  # easy, medium, hard
-
-
-# class FlashcardsResponse(BaseModel):
-#     chat_id: int
-#     video_title: str
-#     flashcards: List[Flashcard]
-
-
-# # Prompt for generating flashcards
-# FLASHCARD_PROMPT = """Analyze this video transcript and create flashcards for the key concepts, facts, and takeaways.
-
-# ## Rules:
-# - Create 8-15 flashcards depending on content density
-# - Questions should test understanding, not just recall
-# - Answers should be concise but complete (1-3 sentences)
-# - Include a mix of difficulties (easy, medium, hard)
-# - Focus on the most important/useful information
-# - Make questions specific, not vague
-
-# ## Return format:
-# Return ONLY a valid JSON array, no other text or markdown. Example:
-# [
-#   {"question": "What are the three criteria for selecting exercises?", "answer": "High tension in stretched position, feels good (no joint pain), and potential for progressive overload.", "difficulty": "easy"},
-#   {"question": "Why are seated hamstring curls more effective than lying curls?", "answer": "The seated position pre-stretches the hamstring at the start of the movement, leading to approximately 1.5x more muscle growth.", "difficulty": "medium"}
-# ]
-
-# ## Transcript:
-# {transcript}
-# """
-
-
-# def parse_flashcards_response(response_text: str) -> List[dict]:
-#     """Parse the AI response to extract flashcards JSON"""
-#     text = response_text.strip()
-    
-#     # Remove markdown code blocks if present
-#     if '```json' in text:
-#         text = text.split('```json')[1].split('```')[0]
-#     elif '```' in text:
-#         text = text.split('```')[1].split('```')[0]
-    
-#     # Find the JSON array
-#     start = text.find('[')
-#     end = text.rfind(']') + 1
-    
-#     if start == -1 or end == 0:
-#         raise ValueError("No JSON array found in response")
-    
-#     json_str = text[start:end]
-#     flashcards = json.loads(json_str)
-    
-#     # Validate and clean
-#     cleaned = []
-#     for card in flashcards:
-#         if 'question' in card and 'answer' in card:
-#             cleaned.append({
-#                 'question': card['question'],
-#                 'answer': card['answer'],
-#                 'difficulty': card.get('difficulty', 'medium')
-#             })
-    
-#     return cleaned
-
-
-# @router.get("/{chat_id}", response_model=FlashcardsResponse)
-# def generate_flashcards(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-#     """Generate flashcards for a video on-demand"""
-    
-#     # Get the chat and verify ownership
-#     chat = db.query(models.Chat).filter(
-#         models.Chat.id == chat_id,
-#         models.Chat.user_id == user['id']
-#     ).first()
-    
-#     if not chat:
-#         raise HTTPException(status_code=404, detail="Chat not found")
-    
-#     # Generate flashcards using AI
-#     try:
-#         response = client.models.generate_content(
-#             model="gemini-2.5-flash",
-#             contents=FLASHCARD_PROMPT.format(transcript=chat.youtube_transcript)
-#         )
-        
-#         flashcards = parse_flashcards_response(response.text)
-        
-#     except json.JSONDecodeError as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
-    
-#     return {
-#         "chat_id": chat_id,
-#         "video_title": chat.session_name,
-#         "flashcards": flashcards
-#     }
-
-
-
-# from typing import List
-# from fastapi import HTTPException, Depends
-# from sqlalchemy.orm import Session
-# from pydantic import BaseModel
-# from .. import models
-# from fastapi import APIRouter
-# from ..database import get_db
-# from ..config import user_dependency
-# from ..gemini_client import client
-# import json
-# import re
-
-# router = APIRouter(
-#     prefix='/flashcards',
-#     tags=['Flashcards']
-# )
-
-
-# class Flashcard(BaseModel):
-#     question: str
-#     answer: str
-#     difficulty: str
-
-
-# class FlashcardsResponse(BaseModel):
-#     chat_id: int
-#     video_title: str
-#     flashcards: List[Flashcard]
-
-
-# def get_flashcard_prompt(transcript: str) -> str:
-#     return f"""Analyze this video transcript and create flashcards for the key concepts.
-
-# RULES:
-# - Create 8-12 flashcards
-# - Questions should test understanding, not just recall
-# - Answers should be 1-3 sentences
-# - Difficulty should be: easy, medium, or hard
-
-# IMPORTANT: Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
-
-# Example format:
-# [
-#   {{"question": "What is the main topic?", "answer": "The main topic is...", "difficulty": "easy"}},
-#   {{"question": "Why is X important?", "answer": "X is important because...", "difficulty": "medium"}}
-# ]
-
-# TRANSCRIPT:
-# {transcript}
-
-# JSON ARRAY:"""
-
-
-# def parse_flashcards_response(response_text: str) -> List[dict]:
-#     """Parse the AI response to extract flashcards JSON"""
-#     text = response_text.strip()
-    
-#     print(f"Raw AI response (first 500 chars): {text[:500]}")
-    
-#     # Remove markdown code blocks if present
-#     if '```json' in text:
-#         text = text.split('```json')[1].split('```')[0]
-#     elif '```' in text:
-#         parts = text.split('```')
-#         if len(parts) >= 2:
-#             text = parts[1]
-#             # Remove language identifier if present
-#             if text.startswith('json'):
-#                 text = text[4:]
-    
-#     text = text.strip()
-    
-#     # Find the JSON array
-#     start = text.find('[')
-#     end = text.rfind(']') + 1
-    
-#     if start == -1 or end <= start:
-#         print(f"Could not find JSON array in: {text[:200]}")
-#         raise ValueError("No JSON array found in response")
-    
-#     json_str = text[start:end]
-    
-#     print(f"Extracted JSON (first 300 chars): {json_str[:300]}")
-    
-#     # Parse JSON
-#     flashcards = json.loads(json_str)
-    
-#     # Validate and clean
-#     cleaned = []
-#     for card in flashcards:
-#         if isinstance(card, dict) and 'question' in card and 'answer' in card:
-#             cleaned.append({
-#                 'question': str(card['question']),
-#                 'answer': str(card['answer']),
-#                 'difficulty': str(card.get('difficulty', 'medium'))
-#             })
-    
-#     if not cleaned:
-#         raise ValueError("No valid flashcards found in response")
-    
-#     print(f"Successfully parsed {len(cleaned)} flashcards")
-#     return cleaned
-
-
-# @router.get("/{chat_id}", response_model=FlashcardsResponse)
-# def generate_flashcards(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-#     """Generate flashcards for a video on-demand"""
-    
-#     chat = db.query(models.Chat).filter(
-#         models.Chat.id == chat_id,
-#         models.Chat.user_id == user['id']
-#     ).first()
-    
-#     if not chat:
-#         raise HTTPException(status_code=404, detail="Chat not found")
-    
-#     try:
-#         # Truncate transcript if too long (keep first 15000 chars)
-#         transcript = chat.youtube_transcript[:15000]
-        
-#         response = client.models.generate_content(
-#             model="gemini-2.5-flash",
-#             contents=get_flashcard_prompt(transcript)
-#         )
-        
-#         print(f"Gemini response received, length: {len(response.text)}")
-        
-#         flashcards = parse_flashcards_response(response.text)
-        
-#         return {
-#             "chat_id": chat_id,
-#             "video_title": chat.session_name,
-#             "flashcards": flashcards
-#         }
-        
-#     except json.JSONDecodeError as e:
-#         print(f"JSON decode error: {e}")
-#         raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
-#     except ValueError as e:
-#         print(f"Value error: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-#     except Exception as e:
-#         print(f"Unexpected error: {type(e).__name__}: {e}")
-#         raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
-
-
 from typing import List
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -284,45 +17,52 @@ router = APIRouter(
 )
 
 
-# class FlashcardOut(BaseModel):
-#     id: int
-#     question: str
-#     answer: str
-#     difficulty: str
+class FlashcardGenerateRequest(BaseModel):
+    """Request body for generating flashcards with options"""
+    count: int = 10  # 5-25 cards
+    topic_ids: List[int] = []  # Empty = all topics
+    focus_prompt: str = None  # Optional focus instructions
+    set_name: str = None  # Name for this set of flashcards
+
+
+def get_flashcard_prompt(timed_transcript: str, count: int = 10, focus_prompt: str = None, topics: List[str] = None) -> str:
+    topic_instruction = ""
+    if topics:
+        topic_instruction = f"\n- Focus on these specific topics: {', '.join(topics)}"
     
-#     class Config:
-#         from_attributes = True
-
-
-# class FlashcardsResponse(BaseModel):
-#     chat_id: int
-#     video_title: str
-#     flashcards: List[FlashcardOut]
-
-
-def get_flashcard_prompt(timed_transcript: str) -> str:
+    focus_instruction = ""
+    if focus_prompt:
+        focus_instruction = f"\n- Special focus: {focus_prompt}"
+    
     return f"""Analyze this video transcript and create flashcards for the key concepts.
 
 RULES:
-- Create 8-12 flashcards
+- Create exactly {count} flashcards
 - Questions should test understanding, not just recall
 - Answers should be 1-3 sentences
 - Difficulty should be: easy, medium, or hard
-- Hint should be brief, 3-6 words
-- Explain why the answer is correct using the transcript and provide the exact timestamp in the video where the answer can be found
+- Hints should be varied and helpful. Use different formats depending on the question like:
+  - Key terms: "Divine will, blood clot, Tatar"
+  - Thinking prompts: "Think about how large numbers can impact storage."
+  - Process hints: "Involves finding the largest item less than a given value."
+  - Context clues: "Related to the aftermath of his father's death."
+  - Category hints: "It's a type of sorting algorithm."
+  Keep hints concise (under 15 words) but make them genuinely helpful for recalling the answer.
+- Explain why the answer is correct using the transcript and provide the exact timestamp in the video where the answer can be found{topic_instruction}{focus_instruction}
 
 IMPORTANT: Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
 
 Example format:
 [
-  {{"question": "What was the actual condition of the Mongols shortly after Yesugei's death, contrasting with their future glory?", "answer": "They were not a rising power—many were slaves of the Jin Dynasty, Yesugei’s family was abandoned, and the Mongols were a fragmented, subject people on the margins of Chinese power.", "difficulty": "easy", "hint": "Fragmented Mongols, Jin subjects, abandoned clan", "timestamp": "02:15", "explanation": "After Yesugei's death, the Mongols were not a burgeoning power; many were common slaves of the Jin Dynasty, and Yesugei's family was abandoned by their clan. This period saw the Mongols as a fractured, subject people on the outskirts of Chinese power, far from the unified empire they would later become."}},
-  {{"question": "Why is X important?", "answer": "X is important because...", "difficulty": "medium", "hint": "Theory of relativity", "timestamp": "05:30", "explanation": "The importance of X lies in..."}}
+  {{"question": "What was the actual condition of the Mongols shortly after Yesugei's death, contrasting with their future glory?", "answer": "They were not a rising power—many were slaves of the Jin Dynasty, Yesugei's family was abandoned, and the Mongols were a fragmented, subject people on the margins of Chinese power.", "difficulty": "easy", "hint": "Think about their status relative to Chinese dynasties at that time.", "timestamp": "02:15", "explanation": "After Yesugei's death, the Mongols were not a burgeoning power; many were common slaves of the Jin Dynasty, and Yesugei's family was abandoned by their clan. This period saw the Mongols as a fractured, subject people on the outskirts of Chinese power, far from the unified empire they would later become."}},
+  {{"question": "Why is binary search more efficient than linear search?", "answer": "Binary search eliminates half of the remaining elements with each comparison, resulting in O(log n) time complexity compared to O(n) for linear search.", "difficulty": "medium", "hint": "Consider what happens to the search space after each comparison.", "timestamp": "05:30", "explanation": "Binary search works by repeatedly dividing the sorted array in half, which means it only needs log₂(n) comparisons in the worst case."}}
 ]
 
 TRANSCRIPT:
 {timed_transcript}
 
 JSON ARRAY:"""
+
 
 
 def parse_flashcards_response(response_text: str) -> List[dict]:
@@ -356,7 +96,8 @@ def parse_flashcards_response(response_text: str) -> List[dict]:
                 'answer': str(card['answer']),
                 'difficulty': str(card.get('difficulty', 'medium')),
                 'hint': str(card.get('hint', '')),
-                'timestamp': str(card.get('timestamp', ''))
+                'timestamp': str(card.get('timestamp', '')),
+                'explanation': str(card.get('explanation', ''))
             })
     
     if not cleaned:
@@ -365,14 +106,22 @@ def parse_flashcards_response(response_text: str) -> List[dict]:
     return cleaned
 
 
-def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -> List[models.Flashcard]:
+def generate_and_save_flashcards(
+    chat: models.Chat, 
+    user_id: int, 
+    db: Session,
+    count: int = 10,
+    focus_prompt: str = None,
+    topics: List[str] = None,
+    set_name: str = None
+) -> List[models.Flashcard]:
     """Generate flashcards using AI and save to database"""
     
-    timed_transcript = chat.youtube_transcript_timed[:15000]
+    timed_transcript = chat.youtube_transcript_timed[:15000] if chat.youtube_transcript_timed else chat.youtube_transcript[:15000]
     
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=get_flashcard_prompt(timed_transcript)
+        contents=get_flashcard_prompt(timed_transcript, count, focus_prompt, topics)
     )
     
     flashcards_data = parse_flashcards_response(response.text)
@@ -386,7 +135,9 @@ def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -
             answer=card_data['answer'],
             difficulty=card_data['difficulty'],
             hint=card_data['hint'],
-            timestamp=card_data['timestamp']
+            timestamp=card_data['timestamp'],
+            explanation=card_data['explanation'],
+            set_name=set_name
         )
         db.add(flashcard)
         created_flashcards.append(flashcard)
@@ -399,9 +150,10 @@ def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -
     return created_flashcards
 
 
+
 @router.get("/{chat_id}", response_model=schemas.FlashcardsResponse)
 def get_flashcards(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-    """Get flashcards for a video. Generates them if they don't exist."""
+    """Get existing flashcards for a video. Does NOT auto-generate."""
     
     chat = db.query(models.Chat).filter(
         models.Chat.id == chat_id,
@@ -411,29 +163,18 @@ def get_flashcards(chat_id: int, user: user_dependency, db: Session = Depends(ge
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     
-    # Check if flashcards already exist
+    # Return existing flashcards only (no auto-generation)
     existing = db.query(models.Flashcard).filter(
         models.Flashcard.chat_id == chat_id,
         models.Flashcard.user_id == user['id']
-    ).all()
+    ).order_by(models.Flashcard.created_at.desc()).all()
     
-    if existing:
-        return {
-            "chat_id": chat_id,
-            "video_title": chat.session_name,
-            "flashcards": existing
-        }
-    
-    # Generate new flashcards
-    try:
-        flashcards = generate_and_save_flashcards(chat, user['id'], db)
-        return {
-            "chat_id": chat_id,
-            "video_title": chat.session_name,
-            "flashcards": flashcards
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
+    return {
+        "chat_id": chat_id,
+        "video_title": chat.session_name,
+        "flashcards": existing
+    }
+
 
 
 @router.delete("/{chat_id}")
@@ -456,3 +197,62 @@ def delete_flashcards(chat_id: int, user: user_dependency, db: Session = Depends
     db.commit()
     
     return {"deleted": deleted}
+
+
+@router.post("/{chat_id}/generate")
+def generate_flashcards_with_options(
+    chat_id: int, 
+    request: FlashcardGenerateRequest,
+    user: user_dependency, 
+    db: Session = Depends(get_db)
+):
+    """Generate flashcards with custom options (count, topics, focus)"""
+    
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Get topic titles if topic_ids provided
+    topics = None
+    if request.topic_ids:
+        concepts = db.query(models.KeyConcept).filter(
+            models.KeyConcept.id.in_(request.topic_ids),
+            models.KeyConcept.chat_id == chat_id
+        ).all()
+        topics = [c.title for c in concepts]
+    
+    # Generate flashcards with options
+    try:
+        flashcards = generate_and_save_flashcards(
+            chat=chat,
+            user_id=user['id'],
+            db=db,
+            count=min(max(request.count, 5), 25),  # Clamp between 5-25
+            focus_prompt=request.focus_prompt,
+            topics=topics,
+            set_name=request.set_name
+        )
+        return {
+            "chat_id": chat_id,
+            "video_title": chat.session_name,
+            "set_name": request.set_name,
+            "flashcards": [
+                {
+                    "id": f.id,
+                    "question": f.question,
+                    "answer": f.answer,
+                    "difficulty": f.difficulty,
+                    "hint": f.hint,
+                    "timestamp": f.timestamp,
+                    "explanation": f.explanation,
+                    "set_name": f.set_name
+                }
+                for f in flashcards
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")

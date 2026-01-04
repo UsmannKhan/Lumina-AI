@@ -30,25 +30,33 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const [hoveredChat, setHoveredChat] = useState<number | null>(null);
 
+  // When collapsed, render just a floating button
+  if (isCollapsed) {
+    return (
+      <button
+        onClick={onToggleCollapse}
+        className="fixed left-4 top-4 z-50 p-3 rounded-xl bg-void-900 border border-white/[0.08] shadow-xl hover:bg-void-800 text-void-400 hover:text-void-200 transition-all"
+        title="Show sidebar"
+      >
+        <ChevronLeftIcon size={18} className="rotate-180" />
+      </button>
+    );
+  }
+
   return (
     <aside
-      className={clsx(
-        'h-screen flex flex-col border-r border-white/[0.06] transition-all duration-300 ease-out glass-darker',
-        isCollapsed ? 'w-20' : 'w-80'
-      )}
+      className="h-screen flex flex-col border-r border-white/[0.06] transition-all duration-300 ease-out glass-darker w-80"
     >
       {/* Header */}
       <div className="p-4 border-b border-white/[0.06]">
-        <div className={clsx('flex items-center', isCollapsed ? 'justify-center' : 'justify-between')}>
-          {!isCollapsed && <Logo size="sm" />}
+        <div className="flex items-center justify-between">
+          <Logo size="sm" />
           <button
             onClick={onToggleCollapse}
             className="p-2 rounded-lg hover:bg-white/[0.05] text-void-400 hover:text-void-200 transition-colors"
+            title="Hide sidebar"
           >
-            <ChevronLeftIcon 
-              size={18} 
-              className={clsx('transition-transform duration-300', isCollapsed && 'rotate-180')} 
-            />
+            <ChevronLeftIcon size={18} />
           </button>
         </div>
       </div>
@@ -59,21 +67,21 @@ export default function ChatSidebar({
           onClick={onNewChat}
           variant="primary"
           size="md"
-          className={clsx('w-full', isCollapsed && 'px-3')}
+          className="w-full"
         >
           <PlusIcon size={18} />
-          {!isCollapsed && <span>New Analysis</span>}
+          <span>New Analysis</span>
         </Button>
       </div>
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {!isCollapsed && chats.length > 0 && (
+        {chats.length > 0 && (
           <p className="text-xs font-medium text-void-500 uppercase tracking-wider px-3 mb-3">
             Your Sessions
           </p>
         )}
-        
+
         <div className="space-y-1 stagger-children">
           {chats.map((chat) => (
             <div
@@ -88,25 +96,25 @@ export default function ChatSidebar({
               onMouseLeave={() => setHoveredChat(null)}
               onClick={() => onSelectChat(chat)}
             >
-              <div className={clsx('flex items-center gap-3 p-3', isCollapsed && 'justify-center')}>
+              <div className="flex items-center gap-3 p-3">
                 <div className={clsx(
                   'flex-shrink-0 rounded-lg p-2',
                   activeChat?.id === chat.id ? 'bg-ember-500/20' : 'bg-white/[0.05]'
                 )}>
-                  <YoutubeIcon 
-                    size={16} 
-                    className={activeChat?.id === chat.id ? 'text-ember-400' : 'text-void-400'} 
+                  <YoutubeIcon
+                    size={16}
+                    className={activeChat?.id === chat.id ? 'text-ember-400' : 'text-void-400'}
                   />
                 </div>
-                
+
                 {!isCollapsed && (
                   <div className="flex-1 min-w-0">
                     <p className={clsx(
                       'text-sm font-medium truncate',
                       activeChat?.id === chat.id ? 'text-ember-300' : 'text-void-200'
                     )}>
-                      {chat.session_name.length > 30 
-                        ? chat.session_name.substring(0, 30) + '...' 
+                      {chat.session_name.length > 30
+                        ? chat.session_name.substring(0, 30) + '...'
                         : chat.session_name}
                     </p>
                   </div>

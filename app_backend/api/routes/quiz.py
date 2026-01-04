@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -18,57 +18,46 @@ router = APIRouter(
 
 # ============== Schemas ==============
 
-# class MCQQuestion(BaseModel):
-#     type: str = "mcq"
-#     question: str
-#     options: List[str]
-#     correct_index: int
-#     explanation: str
-
-
-# class TrueFalseQuestion(BaseModel):
-#     type: str = "true_false"
-#     statement: str
-#     correct_answer: bool
-#     explanation: str
-
-
-# class ShortAnswerQuestion(BaseModel):
-#     type: str = "short_answer"
-#     question: str
-#     ideal_answer: str  # For reference, AI will grade flexibly
-#     key_points: List[str]  # Key concepts that should be mentioned
-
-
-# class QuizResponse(BaseModel):
-#     chat_id: int
-#     video_title: str
-#     questions: List[dict]
-
-
-# class GradeRequest(BaseModel):
-#     question: str
-#     ideal_answer: str
-#     key_points: List[str]
-#     user_answer: str
-
-
-# class GradeResponse(BaseModel):
-#     correct: bool
-#     score: int  # 0-100
-#     feedback: str
+class QuizGenerateRequest(BaseModel):
+    mcq_count: int = 5
+    tf_count: int = 3
+    short_answer_count: int = 2
+    difficulty: str = "mixed"  # easy, medium, hard, mixed
+    topic_ids: List[int] = []
+    focus_prompt: Optional[str] = None
+    set_name: Optional[str] = None
 
 
 # ============== Prompts ==============
 
-def get_quiz_prompt(transcript: str) -> str:
+def get_quiz_prompt(
+    transcript: str, 
+    mcq_count: int = 5, 
+    tf_count: int = 3, 
+    short_count: int = 2,
+    difficulty: str = "mixed",
+    topics: List[str] = None,
+    focus_prompt: str = None
+) -> str:
+    topic_instruction = ""
+    if topics:
+        topic_instruction = f"\nFOCUS ON THESE TOPICS: {', '.join(topics)}\n"
+    
+    focus_instruction = ""
+    if focus_prompt:
+        focus_instruction = f"\nADDITIONAL FOCUS: {focus_prompt}\n"
+    
+    difficulty_instruction = ""
+    if difficulty != "mixed":
+        difficulty_instruction = f"\nDIFFICULTY LEVEL: All questions should be {difficulty} difficulty.\n"
+    
     return f"""Analyze this video transcript and create a quiz with mixed question types.
 
 CREATE EXACTLY:
-- 4 multiple choice questions (MCQ)
-- 3 true/false questions
-- 3 short answer questions
-
+- {mcq_count} multiple choice questions (MCQ)
+- {tf_count} true/false questions
+- {short_count} short answer questions
+{topic_instruction}{focus_instruction}{difficulty_instruction}
 RULES:
 - Questions should test understanding of key concepts
 - MCQ should have 4 options with only 1 correct answer
@@ -77,7 +66,7 @@ RULES:
 - All questions should be answerable from the transcript
 - Include brief explanations for MCQ and T/F answers
 - For short answer, include the ideal answer and 2-4 key points to look for
-- Never start a question or the brief explanation with "According to the transcript" or similar phrases, rather use "Based on the content" or "According to the video" etc. if really needed.
+- Never start with "According to the transcript" - use "Based on the content" or "According to the video" if needed.
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -109,6 +98,7 @@ TRANSCRIPT:
 {transcript}
 
 JSON:"""
+
 
 
 def get_grading_prompt(question: str, ideal_answer: str, key_points: List[str], user_answer: str) -> str:
@@ -224,9 +214,9 @@ def parse_grade_response(response_text: str) -> dict:
 
 # ============== Endpoints ==============
 
-@router.get("/{chat_id}", response_model=schemas.QuizResponse)
-def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
-    """Generate a quiz for a video"""
+@router.get("/{chat_id}")
+def get_quizzes(chat_id: int, user: user_dependency, db: Session = Depends(get_db)):
+    """Get existing quizzes for a chat. Does NOT auto-generate."""
     
     chat = db.query(models.Chat).filter(
         models.Chat.id == chat_id,
@@ -236,20 +226,162 @@ def generate_quiz(chat_id: int, user: user_dependency, db: Session = Depends(get
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     
+    # Get existing quizzes with their questions
+    quizzes = db.query(models.Quiz).filter(
+        models.Quiz.chat_id == chat_id,
+        models.Quiz.user_id == user['id']
+    ).order_by(models.Quiz.created_at.desc()).all()
+    
+    result = []
+    for quiz in quizzes:
+        questions = db.query(models.QuizQuestion).filter(
+            models.QuizQuestion.quiz_id == quiz.id
+        ).all()
+        
+        result.append({
+            "id": quiz.id,
+            "set_name": quiz.set_name,
+            "total_questions": quiz.total_questions,
+            "score": quiz.score,
+            "completed": quiz.completed,
+            "difficulty": quiz.difficulty,
+            "created_at": quiz.created_at.isoformat() if quiz.created_at else None,
+            "questions": [
+                {
+                    "id": q.id,
+                    "type": q.question_type,
+                    "question": q.question_text,
+                    "options": json.loads(q.options) if q.options else None,
+                    "correct_answer": q.correct_answer,
+                    "explanation": q.explanation,
+                    "user_answer": q.user_answer,
+                    "is_correct": q.is_correct
+                } for q in questions
+            ]
+        })
+    
+    return {
+        "chat_id": chat_id,
+        "video_title": chat.session_name,
+        "quizzes": result
+    }
+
+
+@router.post("/{chat_id}/generate")
+def generate_quiz(
+    chat_id: int, 
+    request: QuizGenerateRequest,
+    user: user_dependency, 
+    db: Session = Depends(get_db)
+):
+    """Generate a new quiz with custom options."""
+    
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Get topic titles if topic_ids provided
+    topics = None
+    if request.topic_ids:
+        concepts = db.query(models.KeyConcept).filter(
+            models.KeyConcept.id.in_(request.topic_ids)
+        ).all()
+        topics = [c.title for c in concepts]
+    
     try:
         transcript = chat.youtube_transcript[:15000]
         
+        # Generate quiz with AI
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=get_quiz_prompt(transcript)
+            contents=get_quiz_prompt(
+                transcript,
+                mcq_count=request.mcq_count,
+                tf_count=request.tf_count,
+                short_count=request.short_answer_count,
+                difficulty=request.difficulty,
+                topics=topics,
+                focus_prompt=request.focus_prompt
+            )
         )
         
         questions = parse_quiz_response(response.text)
         
+        # Create Quiz record
+        total = request.mcq_count + request.tf_count + request.short_answer_count
+        quiz = models.Quiz(
+            chat_id=chat_id,
+            user_id=user['id'],
+            set_name=request.set_name or f"Quiz {len(db.query(models.Quiz).filter(models.Quiz.chat_id == chat_id).all()) + 1}",
+            mcq_count=request.mcq_count,
+            tf_count=request.tf_count,
+            short_answer_count=request.short_answer_count,
+            difficulty=request.difficulty,
+            total_questions=total,
+            completed=0
+        )
+        db.add(quiz)
+        db.commit()
+        db.refresh(quiz)
+        
+        # Create QuizQuestion records
+        for q in questions:
+            q_type = q['type']
+            if q_type == 'mcq':
+                question = models.QuizQuestion(
+                    quiz_id=quiz.id,
+                    question_type='mcq',
+                    question_text=q['question'],
+                    options=json.dumps(q['options']),
+                    correct_answer=str(q['correct_index']),
+                    explanation=q.get('explanation')
+                )
+            elif q_type == 'true_false':
+                question = models.QuizQuestion(
+                    quiz_id=quiz.id,
+                    question_type='true_false',
+                    question_text=q['statement'],
+                    correct_answer=str(q['correct_answer']).lower(),
+                    explanation=q.get('explanation')
+                )
+            elif q_type == 'short_answer':
+                question = models.QuizQuestion(
+                    quiz_id=quiz.id,
+                    question_type='short_answer',
+                    question_text=q['question'],
+                    correct_answer=q['ideal_answer'],
+                    explanation=json.dumps(q.get('key_points', []))
+                )
+            else:
+                continue
+            db.add(question)
+        
+        db.commit()
+        
+        # Return the quiz with questions
+        saved_questions = db.query(models.QuizQuestion).filter(
+            models.QuizQuestion.quiz_id == quiz.id
+        ).all()
+        
         return {
+            "id": quiz.id,
             "chat_id": chat_id,
-            "video_title": chat.session_name,
-            "questions": questions
+            "set_name": quiz.set_name,
+            "total_questions": quiz.total_questions,
+            "questions": [
+                {
+                    "id": q.id,
+                    "type": q.question_type,
+                    "question": q.question_text,
+                    "options": json.loads(q.options) if q.options else None,
+                    "correct_answer": q.correct_answer,
+                    "explanation": q.explanation
+                } for q in saved_questions
+            ]
         }
         
     except json.JSONDecodeError as e:

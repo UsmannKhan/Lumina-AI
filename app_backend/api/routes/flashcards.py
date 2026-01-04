@@ -300,7 +300,7 @@ router = APIRouter(
 #     flashcards: List[FlashcardOut]
 
 
-def get_flashcard_prompt(transcript: str) -> str:
+def get_flashcard_prompt(timed_transcript: str) -> str:
     return f"""Analyze this video transcript and create flashcards for the key concepts.
 
 RULES:
@@ -308,17 +308,19 @@ RULES:
 - Questions should test understanding, not just recall
 - Answers should be 1-3 sentences
 - Difficulty should be: easy, medium, or hard
+- Hint should be brief, 3-6 words
+- Explain why the answer is correct using the transcript and provide the exact timestamp in the video where the answer can be found
 
 IMPORTANT: Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
 
 Example format:
 [
-  {{"question": "What is the main topic?", "answer": "The main topic is...", "difficulty": "easy"}},
-  {{"question": "Why is X important?", "answer": "X is important because...", "difficulty": "medium"}}
+  {{"question": "What was the actual condition of the Mongols shortly after Yesugei's death, contrasting with their future glory?", "answer": "They were not a rising power—many were slaves of the Jin Dynasty, Yesugei’s family was abandoned, and the Mongols were a fragmented, subject people on the margins of Chinese power.", "difficulty": "easy", "hint": "Fragmented Mongols, Jin subjects, abandoned clan", "timestamp": "02:15", "explanation": "After Yesugei's death, the Mongols were not a burgeoning power; many were common slaves of the Jin Dynasty, and Yesugei's family was abandoned by their clan. This period saw the Mongols as a fractured, subject people on the outskirts of Chinese power, far from the unified empire they would later become."}},
+  {{"question": "Why is X important?", "answer": "X is important because...", "difficulty": "medium", "hint": "Theory of relativity", "timestamp": "05:30", "explanation": "The importance of X lies in..."}}
 ]
 
 TRANSCRIPT:
-{transcript}
+{timed_transcript}
 
 JSON ARRAY:"""
 
@@ -352,7 +354,9 @@ def parse_flashcards_response(response_text: str) -> List[dict]:
             cleaned.append({
                 'question': str(card['question']),
                 'answer': str(card['answer']),
-                'difficulty': str(card.get('difficulty', 'medium'))
+                'difficulty': str(card.get('difficulty', 'medium')),
+                'hint': str(card.get('hint', '')),
+                'timestamp': str(card.get('timestamp', ''))
             })
     
     if not cleaned:
@@ -364,11 +368,11 @@ def parse_flashcards_response(response_text: str) -> List[dict]:
 def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -> List[models.Flashcard]:
     """Generate flashcards using AI and save to database"""
     
-    transcript = chat.youtube_transcript[:15000]
+    timed_transcript = chat.youtube_transcript_timed[:15000]
     
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=get_flashcard_prompt(transcript)
+        contents=get_flashcard_prompt(timed_transcript)
     )
     
     flashcards_data = parse_flashcards_response(response.text)
@@ -380,7 +384,9 @@ def generate_and_save_flashcards(chat: models.Chat, user_id: int, db: Session) -
             user_id=user_id,
             question=card_data['question'],
             answer=card_data['answer'],
-            difficulty=card_data['difficulty']
+            difficulty=card_data['difficulty'],
+            hint=card_data['hint'],
+            timestamp=card_data['timestamp']
         )
         db.add(flashcard)
         created_flashcards.append(flashcard)

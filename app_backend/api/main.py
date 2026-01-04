@@ -7,7 +7,7 @@ from .models import Base
 from .database import engine
 from .routes import users, chats, messages, auth, flashcards, quiz
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 

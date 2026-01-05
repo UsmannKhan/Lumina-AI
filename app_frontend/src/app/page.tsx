@@ -14,7 +14,7 @@ import {
 
 export default function Dashboard() {
   const { isAuthenticated, isLoading: authLoading, login, register, logout } = useAuth();
-  
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -26,7 +26,7 @@ export default function Dashboard() {
   // Load chats when authenticated
   const loadChats = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     setIsLoadingChats(true);
     try {
       const userChats = await api.getChats();
@@ -63,10 +63,10 @@ export default function Dashboard() {
 
   const handleCreateChat = async (youtubeLink: string) => {
     const newChat = await api.createChat(youtubeLink);
-    
+
     // Reload chats to get full data
     await loadChats();
-    
+
     // Find and select the new chat
     const fullChat = await api.getChats();
     const createdChat = fullChat.find(c => c.id === newChat.id);
@@ -77,11 +77,11 @@ export default function Dashboard() {
 
   const handleDeleteChat = async (chatId: number) => {
     await api.deleteChat(chatId);
-    
+
     if (activeChat?.id === chatId) {
       setActiveChat(null);
     }
-    
+
     setChats(prev => prev.filter(c => c.id !== chatId));
   };
 
@@ -148,6 +148,7 @@ export default function Dashboard() {
             messages={messages}
             onSendMessage={handleSendMessage}
             onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            isSidebarCollapsed={isSidebarCollapsed}
             isSending={isSendingMessage}
           />
         ) : (

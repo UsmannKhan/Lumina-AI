@@ -115,6 +115,15 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
     setViewMode('quiz');
   };
 
+  const toggleTopic = (id: number) => {
+    setSelectedTopics(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllTopics = () => setSelectedTopics(concepts.map(c => c.id));
+  const deselectAllTopics = () => setSelectedTopics([]);
+
   const currentQuestion = currentQuiz?.questions[currentIndex];
 
   const checkAnswer = async () => {
@@ -182,9 +191,6 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
     }
   };
 
-  const selectAllTopics = () => setSelectedTopics(concepts.map(c => c.id));
-  const deselectAllTopics = () => setSelectedTopics([]);
-
   // Config view
   if (viewMode === 'config') {
     const totalQuestions = mcqCount + tfCount + shortCount;
@@ -210,36 +216,36 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
           ) : (
             <>
               {/* Question Type Counts */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="flex flex-col gap-3 mb-4">
                 <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <label className="text-xs text-violet-400 mb-1 block">Multiple Choice</label>
+                  <label className="text-xs text-void-400 mb-1 block">Multiple Choice</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="range" min="0" max="10" value={mcqCount}
                       onChange={(e) => setMcqCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-violet-500"
+                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-ember-500"
                     />
                     <span className="text-white font-medium text-sm w-4">{mcqCount}</span>
                   </div>
                 </div>
                 <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <label className="text-xs text-amber-400 mb-1 block">True or False</label>
+                  <label className="text-xs text-void-400 mb-1 block">True or False</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="range" min="0" max="10" value={tfCount}
                       onChange={(e) => setTfCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-amber-500"
+                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-ember-500"
                     />
                     <span className="text-white font-medium text-sm w-4">{tfCount}</span>
                   </div>
                 </div>
                 <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <label className="text-xs text-emerald-400 mb-1 block">Short Answer</label>
+                  <label className="text-xs text-void-400 mb-1 block">Short Answer</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="range" min="0" max="5" value={shortCount}
                       onChange={(e) => setShortCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-emerald-500"
+                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-ember-500"
                     />
                     <span className="text-white font-medium text-sm w-4">{shortCount}</span>
                   </div>
@@ -280,6 +286,23 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                   <span className="text-white text-sm">
                     {selectedTopics.length === concepts.length ? 'All topics' : `${selectedTopics.length}/${concepts.length} selected`}
                   </span>
+                </div>
+              )}
+
+              {/* Collapsible Topic Selection - show when not all selected */}
+              {concepts.length > 0 && selectedTopics.length !== concepts.length && (
+                <div className="mb-4 p-2 bg-white/[0.02] rounded-xl border border-white/[0.06] max-h-32 overflow-y-auto">
+                  {concepts.map((concept) => (
+                    <label key={concept.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-white/[0.03] cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={selectedTopics.includes(concept.id)}
+                        onChange={() => toggleTopic(concept.id)}
+                        className="w-3 h-3 rounded border-void-600 text-ember-500"
+                      />
+                      <span className="text-white flex-1 truncate">{concept.title}</span>
+                    </label>
+                  ))}
                 </div>
               )}
 

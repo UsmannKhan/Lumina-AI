@@ -1,4 +1,4 @@
-import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse } from '@/types';
+import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -167,6 +167,27 @@ class ApiClient {
     return this.request<FlashcardsResponse>(`/flashcards/${chatId}/generate`, {
       method: 'POST',
       body: JSON.stringify(options),
+    });
+  }
+
+  // Code Practice
+  async getCodeProblems(chatId: number): Promise<CodeProblemsResponse> {
+    return this.request<CodeProblemsResponse>(`/code/${chatId}`);
+  }
+
+  async generateCodeProblems(chatId: number): Promise<CodeProblemsResponse> {
+    return this.request<CodeProblemsResponse>(`/code/${chatId}/generate`, {
+      method: 'POST',
+    });
+  }
+
+  async evaluateCode(
+    chatId: number,
+    request: CodeEvaluateRequest
+  ): Promise<CodeEvaluationResponse> {
+    return this.request<CodeEvaluationResponse>(`/code/${chatId}/evaluate`, {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 }

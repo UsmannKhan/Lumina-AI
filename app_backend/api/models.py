@@ -94,3 +94,33 @@ class QuizQuestion(Base):
     user_answer = Column(Text, nullable=True)
     is_correct = Column(Integer, nullable=True)  # 0=wrong, 1=correct
     points = Column(Integer, default=1)
+
+
+class CodingProblem(Base):
+    __tablename__ = "coding_problems"
+    
+    id = Column(Integer, primary_key=True, nullable=False)
+    chat_id = Column(Integer, ForeignKey("chats.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    difficulty = Column(String, nullable=False)  # 'easy', 'medium', 'hard'
+    examples = Column(Text, nullable=True)  # JSON string with input/output examples
+    hints = Column(Text, nullable=True)  # JSON array of hints
+    solution = Column(Text, nullable=True)  # Reference solution
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CodingSubmission(Base):
+    __tablename__ = "coding_submissions"
+    
+    id = Column(Integer, primary_key=True, nullable=False)
+    problem_id = Column(Integer, ForeignKey("coding_problems.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(Text, nullable=False)
+    language = Column(String, nullable=False)  # 'python', 'javascript', etc.
+    score = Column(Integer, nullable=True)  # 0-100
+    feedback = Column(Text, nullable=True)  # AI feedback
+    is_correct = Column(Integer, default=0)  # 0=incorrect, 1=correct
+    created_at = Column(DateTime, default=datetime.utcnow)
+

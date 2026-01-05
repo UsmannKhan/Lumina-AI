@@ -35,6 +35,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
   // View mode: 'config' (show config + sets) or 'study' (view flashcards)
   const [viewMode, setViewMode] = useState<'config' | 'study'>('config');
   const [existingSets, setExistingSets] = useState<Flashcard[]>([]); // All flashcards for listing
+  const [activeSetName, setActiveSetName] = useState<string>(''); // Currently viewing set name
 
 
   useEffect(() => {
@@ -120,16 +121,21 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
     setIsGenerating(true);
     setError(null);
 
+    // Generate auto name: Set N based on existing sets count
+    const existingSetNames = Array.from(new Set(existingSets.map(c => c.set_name || 'Unnamed')));
+    const autoName = setName.trim() || `Set ${existingSetNames.length + 1}`;
+
     try {
       const data = await api.generateFlashcardsWithOptions(chatId, {
         count: cardCount,
         topic_ids: selectedTopics.length === concepts.length ? [] : selectedTopics,
         focus_prompt: focusPrompt.trim() || undefined,
-        set_name: setName.trim() || `Set ${new Date().toLocaleTimeString()}`
+        set_name: autoName
       });
 
       // Set the new flashcards and switch to study mode
       setFlashcards(data.flashcards);
+      setActiveSetName(autoName);
       setExistingSets(prev => [...data.flashcards, ...prev]); // Add to existing sets
       setCurrentIndex(0);
       setIsFlipped(false);
@@ -294,7 +300,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
           ) : (
             <>
               {/* Compact Config Grid */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="flex flex-col gap-3 mb-4">
                 {/* Card Count */}
                 <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
                   <label className="text-xs text-void-400 mb-1 block">Cards</label>
@@ -395,6 +401,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                         key={name}
                         onClick={() => {
                           setFlashcards(cards);
+                          setActiveSetName(name);
                           setCurrentIndex(0);
                           setViewMode('study');
                         }}
@@ -430,7 +437,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
               <ChevronLeft size={18} />
             </Button>
             <div>
-              <h2 className="font-display font-semibold text-xl text-white">Flashcards</h2>
+              <h2 className="font-display font-semibold text-xl text-white">{activeSetName}</h2>
               <p className="text-sm text-void-500">
                 Card {currentIndex + 1} of {flashcards.length}
               </p>

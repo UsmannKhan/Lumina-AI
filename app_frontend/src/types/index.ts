@@ -179,6 +179,40 @@ export interface GeneratedQuizResponse {
 }
 
 
+// ============== Code Practice Types ==============
+
+export interface CodeExample {
+  input: string;
+  output: string;
+  explanation?: string;
+}
+
+export interface CodingProblem {
+  id: number;
+  title: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  examples: CodeExample[];
+  hints: string[];
+}
+
+export interface CodeProblemsResponse {
+  is_cs_video: boolean;
+  problems: CodingProblem[];
+}
+
+export interface CodeEvaluateRequest {
+  problem_id: number;
+  code: string;
+  language: string;
+}
+
+export interface CodeEvaluationResponse {
+  score: number;
+  is_correct: boolean;
+  feedback: string;
+  suggestions: string[];
+}
 
 
 

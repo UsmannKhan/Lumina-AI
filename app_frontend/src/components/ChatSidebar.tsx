@@ -35,7 +35,7 @@ export default function ChatSidebar({
     return (
       <button
         onClick={onToggleCollapse}
-        className="fixed left-4 top-4 z-50 p-3 rounded-xl bg-void-900 border border-white/[0.08] shadow-xl hover:bg-void-800 text-void-400 hover:text-void-200 transition-all"
+        className="fixed left-4 top-5 z-50 p-2 rounded-lg hover:bg-white/[0.05] text-void-400 hover:text-void-200 transition-colors"
         title="Show sidebar"
       >
         <ChevronLeftIcon size={18} className="rotate-180" />
@@ -45,7 +45,7 @@ export default function ChatSidebar({
 
   return (
     <aside
-      className="h-screen flex flex-col border-r border-white/[0.06] transition-all duration-300 ease-out glass-darker w-80"
+      className="h-screen flex flex-col border-r border-white/[0.06] glass-darker w-80"
     >
       {/* Header */}
       <div className="p-4 border-b border-white/[0.06]">

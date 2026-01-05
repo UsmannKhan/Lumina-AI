@@ -8,15 +8,17 @@ import { SendIcon, SparklesIcon, UserIcon, FileTextIcon, MenuIcon } from './Icon
 import Button from './Button';
 import FlashcardsView from './FlashcardsView';
 import QuizView from './QuizView';
+import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
 import clsx from 'clsx';
-import { DownloadIcon, Maximize2, Minimize2, BookOpen } from 'lucide-react';
+import { DownloadIcon, Maximize2, Minimize2, BookOpen, FileText, Layers, HelpCircle, Trophy, Subtitles } from 'lucide-react';
 
 interface ChatViewProps {
   chat: Chat;
   messages: Message[];
   onSendMessage: (input: string) => Promise<void>;
   onToggleSidebar: () => void;
+  isSidebarCollapsed: boolean;
   isSending: boolean;
 }
 
@@ -25,10 +27,11 @@ export default function ChatView({
   messages,
   onSendMessage,
   onToggleSidebar,
+  isSidebarCollapsed,
   isSending,
 }: ChatViewProps) {
   const [input, setInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'notes' | 'chat' | 'flashcards' | 'quiz'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'chat' | 'flashcards' | 'quiz' | 'code'>('notes');
   const [isVideoExpanded, setIsVideoExpanded] = useState(false);
   const [isStudyDropdownOpen, setIsStudyDropdownOpen] = useState(false);
   const [transcriptMode, setTranscriptMode] = useState<'collapsed' | 'compact' | 'full'>('compact');
@@ -208,7 +211,10 @@ export default function ChatView({
   return (
     <div className="flex-1 flex flex-col h-screen bg-void-950">
       {/* Header */}
-      <header className="flex-shrink-0 px-6 py-4 border-b border-white/[0.06] glass-darker">
+      <header className={clsx(
+        "flex-shrink-0 px-6 py-4 border-b border-white/[0.06] glass-darker",
+        isSidebarCollapsed && "pl-14"
+      )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -227,14 +233,12 @@ export default function ChatView({
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            {/* Notes Tab */}
+          {/* Tabs - Desktop: individual buttons, Mobile: dropdown */}
+
+          {/* Desktop Tabs */}
+          <div className="hidden md:flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
             <button
-              onClick={() => {
-                setActiveTab('notes');
-                setIsStudyDropdownOpen(false);
-              }}
+              onClick={() => setActiveTab('notes')}
               className={clsx(
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                 activeTab === 'notes'
@@ -242,78 +246,50 @@ export default function ChatView({
                   : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
               )}
             >
-              <SparklesIcon size={16} />
-              <span className="hidden sm:inline">Notes</span>
+              <FileText size={16} />
+              Notes
             </button>
-
-            {/* Study Tools Dropdown */}
-            <div ref={studyDropdownRef} className="relative">
-              <button
-                onClick={() => setIsStudyDropdownOpen(!isStudyDropdownOpen)}
-                className={clsx(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                  (activeTab === 'flashcards' || activeTab === 'quiz')
-                    ? 'bg-ember-500/20 text-ember-300'
-                    : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-                )}
-              >
-                <BookOpen size={16} />
-                <span className="hidden sm:inline">Study Tools</span>
-                <svg
-                  className={clsx("w-4 h-4 transition-transform", isStudyDropdownOpen && "rotate-180")}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {isStudyDropdownOpen && (
-                <div
-                  className="absolute top-full mt-2 right-0 w-44 rounded-xl border border-white/[0.1] shadow-2xl z-[100] overflow-hidden"
-                  style={{ backgroundColor: '#0a0a0c' }}
-                >
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setActiveTab('flashcards');
-                        setIsStudyDropdownOpen(false);
-                      }}
-                      className={clsx(
-                        'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                        activeTab === 'flashcards'
-                          ? 'bg-ember-500/20 text-ember-300'
-                          : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                      )}
-                    >
-                      Flashcards
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveTab('quiz');
-                        setIsStudyDropdownOpen(false);
-                      }}
-                      className={clsx(
-                        'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                        activeTab === 'quiz'
-                          ? 'bg-ember-500/20 text-ember-300'
-                          : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                      )}
-                    >
-                      Quiz
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Chat Tab */}
             <button
-              onClick={() => {
-                setActiveTab('chat');
-                setIsStudyDropdownOpen(false);
-              }}
+              onClick={() => setActiveTab('flashcards')}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                activeTab === 'flashcards'
+                  ? 'bg-ember-500/20 text-ember-300'
+                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
+              )}
+            >
+              <Layers size={16} />
+              Flashcards
+            </button>
+            <button
+              onClick={() => setActiveTab('quiz')}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                activeTab === 'quiz'
+                  ? 'bg-ember-500/20 text-ember-300'
+                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
+              )}
+            >
+              <Trophy size={16} />
+              Quiz
+            </button>
+            <button
+              onClick={() => setActiveTab('code')}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                activeTab === 'code'
+                  ? 'bg-ember-500/20 text-ember-300'
+                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16,18 22,12 16,6" />
+                <polyline points="8,6 2,12 8,18" />
+              </svg>
+              Code
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
               className={clsx(
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                 activeTab === 'chat'
@@ -322,8 +298,89 @@ export default function ChatView({
               )}
             >
               <SendIcon size={16} />
-              <span className="hidden sm:inline">Chat</span>
+              Chat
             </button>
+          </div>
+
+          {/* Mobile Dropdown */}
+          <div ref={studyDropdownRef} className="md:hidden relative">
+            <button
+              onClick={() => setIsStudyDropdownOpen(!isStudyDropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm font-medium text-void-200"
+            >
+              {activeTab === 'notes' && <><FileText size={16} />Notes</>}
+              {activeTab === 'flashcards' && <><Layers size={16} />Flashcards</>}
+              {activeTab === 'quiz' && <><Trophy size={16} />Quiz</>}
+              {activeTab === 'code' && <>Code</>}
+              {activeTab === 'chat' && <><SendIcon size={16} />Chat</>}
+              <svg
+                className={clsx("w-4 h-4 transition-transform ml-1", isStudyDropdownOpen && "rotate-180")}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {isStudyDropdownOpen && (
+              <div
+                className="absolute top-full mt-2 left-0 w-48 rounded-xl border border-white/[0.1] shadow-2xl z-[100] overflow-hidden"
+                style={{ backgroundColor: '#0a0a0c' }}
+              >
+                <div className="py-1">
+                  <button
+                    onClick={() => { setActiveTab('notes'); setIsStudyDropdownOpen(false); }}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      activeTab === 'notes' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                    )}
+                  >
+                    <FileText size={16} />Notes
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('flashcards'); setIsStudyDropdownOpen(false); }}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      activeTab === 'flashcards' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                    )}
+                  >
+                    <Layers size={16} />Flashcards
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('quiz'); setIsStudyDropdownOpen(false); }}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      activeTab === 'quiz' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                    )}
+                  >
+                    <Trophy size={16} />Quiz
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('code'); setIsStudyDropdownOpen(false); }}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      activeTab === 'code' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                    )}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="16,18 22,12 16,6" />
+                      <polyline points="8,6 2,12 8,18" />
+                    </svg>
+                    Code
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('chat'); setIsStudyDropdownOpen(false); }}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      activeTab === 'chat' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                    )}
+                  >
+                    <SendIcon size={16} />Chat
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -370,7 +427,7 @@ export default function ChatView({
             {/* Toggle Bar */}
             <div className="flex items-center justify-between px-4 py-2 bg-white/[0.02] flex-shrink-0">
               <div className="flex items-center gap-1">
-                <FileTextIcon size={14} className="text-void-400 mr-1" />
+                <Subtitles size={14} className="text-void-400 mr-1" />
                 <span className="text-sm text-void-400">Transcript</span>
               </div>
 
@@ -440,15 +497,15 @@ export default function ChatView({
           </div>
         </div>
 
-        {/* Content area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Content area - z-0 so header dropdown stays on top */}
+        <div className="flex-1 flex flex-col min-w-0 relative z-0">
           {activeTab === 'notes' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-ember-500/20">
-                      <SparklesIcon size={20} className="text-ember-400" />
+                      <FileText size={20} className="text-ember-400" />
                     </div>
                     <h2 className="font-display font-semibold text-xl text-white">Here's your notes</h2>
                   </div>
@@ -470,6 +527,10 @@ export default function ChatView({
 
           {activeTab === 'quiz' && (
             <QuizView chatId={chat.id} videoTitle={chat.session_name} />
+          )}
+
+          {activeTab === 'code' && (
+            <CodePracticeView chatId={chat.id} />
           )}
 
           {activeTab === 'chat' && (

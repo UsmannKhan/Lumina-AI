@@ -19,6 +19,8 @@ export interface Chat {
   prompt: string;
   notes: string;
   user_id: number;
+  chat_style?: string;  // study, conversational, concise, custom
+  custom_instructions?: string;
 }
 
 export interface Message {
@@ -215,6 +217,32 @@ export interface CodeEvaluationResponse {
 }
 
 
+// ============== Flashcard CRUD Types ==============
+
+export interface FlashcardUpdateRequest {
+  question?: string;
+  answer?: string;
+  hint?: string;
+  explanation?: string;
+  timestamp?: string;
+  difficulty?: string;
+}
+
+export interface FlashcardCreateRequest {
+  question: string;
+  answer: string;
+  hint?: string;
+  explanation?: string;
+  timestamp?: string;
+  difficulty?: string;
+  set_name: string;
+}
+
+export interface SetRenameRequest {
+  chat_id: number;
+  old_name: string;
+  new_name: string;
+}
 
 
 

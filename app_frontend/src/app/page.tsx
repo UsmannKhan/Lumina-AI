@@ -85,12 +85,12 @@ export default function Dashboard() {
     setChats(prev => prev.filter(c => c.id !== chatId));
   };
 
-  const handleSendMessage = async (input: string) => {
+  const handleSendMessage = async (input: string, useWebSearch: boolean = false) => {
     if (!activeChat) return;
 
     setIsSendingMessage(true);
     try {
-      const response = await api.createMessage(input, activeChat.id);
+      const response = await api.createMessage(input, activeChat.id, useWebSearch);
       setMessages(prev => [...prev, response]);
     } catch (error) {
       console.error('Failed to send message:', error);

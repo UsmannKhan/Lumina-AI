@@ -11,12 +11,13 @@ import QuizView from './QuizView';
 import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
 import clsx from 'clsx';
-import { DownloadIcon, Maximize2, Minimize2, BookOpen, FileText, Layers, HelpCircle, Trophy, Subtitles } from 'lucide-react';
+import { DownloadIcon, Maximize2, Minimize2, BookOpen, FileText, Layers, HelpCircle, Trophy, Subtitles, Globe, MessageSquare, ChevronDown } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface ChatViewProps {
   chat: Chat;
   messages: Message[];
-  onSendMessage: (input: string) => Promise<void>;
+  onSendMessage: (input: string, useWebSearch: boolean) => Promise<void>;
   onToggleSidebar: () => void;
   isSidebarCollapsed: boolean;
   isSending: boolean;
@@ -36,9 +37,15 @@ export default function ChatView({
   const [isStudyDropdownOpen, setIsStudyDropdownOpen] = useState(false);
   const [transcriptMode, setTranscriptMode] = useState<'collapsed' | 'compact' | 'full'>('compact');
   const [isTranscriptAutoScroll, setIsTranscriptAutoScroll] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [chatStyle, setChatStyle] = useState<'study' | 'conversational' | 'concise' | 'custom'>(chat.chat_style as 'study' | 'conversational' | 'concise' | 'custom' || 'study');
+  const [isStyleDropdownOpen, setIsStyleDropdownOpen] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState(chat.custom_instructions || '');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const studyDropdownRef = useRef<HTMLDivElement>(null);
+  const styleDropdownRef = useRef<HTMLDivElement>(null);
 
   // Parse timed transcript if available
   const timedTranscript: TranscriptSegment[] | undefined = chat.youtube_transcript_timed
@@ -49,11 +56,14 @@ export default function ChatView({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (studyDropdownRef.current && !studyDropdownRef.current.contains(event.target as Node)) {
         setIsStudyDropdownOpen(false);
+      }
+      if (styleDropdownRef.current && !styleDropdownRef.current.contains(event.target as Node)) {
+        setIsStyleDropdownOpen(false);
       }
     };
 
@@ -61,13 +71,42 @@ export default function ChatView({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleStyleChange = async (style: 'study' | 'conversational' | 'concise' | 'custom') => {
+    if (style === 'custom') {
+      setShowCustomInput(true);
+      setIsStyleDropdownOpen(false);
+      return;
+    }
+
+    setChatStyle(style);
+    setIsStyleDropdownOpen(false);
+    setShowCustomInput(false);
+
+    try {
+      await api.updateChatStyle(chat.id, style);
+    } catch (err) {
+      console.error('Failed to update chat style:', err);
+    }
+  };
+
+  const handleCustomInstructionsSave = async () => {
+    setChatStyle('custom');
+    setShowCustomInput(false);
+
+    try {
+      await api.updateChatStyle(chat.id, 'custom', customInstructions);
+    } catch (err) {
+      console.error('Failed to save custom instructions:', err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isSending) return;
 
     const message = input;
     setInput('');
-    await onSendMessage(message);
+    await onSendMessage(message, webSearchEnabled);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -613,7 +652,8 @@ export default function ChatView({
 
               <div className="flex-shrink-0 p-6 border-t border-white/[0.06] glass-darker">
                 <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-                  <div className="flex items-center gap-3">
+                  {/* Main input row */}
+                  <div className="flex items-end gap-3">
                     <div className="flex-1 relative">
                       <textarea
                         ref={inputRef}
@@ -625,7 +665,7 @@ export default function ChatView({
                           e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="Ask a question about the video..."
+                        placeholder={webSearchEnabled ? 'Ask with web search...' : 'Ask a question about the video...'}
                         rows={1}
                         className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-4 text-void-100 placeholder:text-void-500 resize-none transition-all focus:outline-none focus:border-ember-500/50 focus:bg-white/[0.05] hover:border-white/[0.15]"
                         style={{ minHeight: '56px', maxHeight: '200px' }}
@@ -636,7 +676,7 @@ export default function ChatView({
                       variant="primary"
                       size="sm"
                       disabled={!input.trim() || isSending}
-                      className="!rounded-xl !p-4 flex-shrink-0 mb-1"
+                      className="!rounded-xl !p-4 flex-shrink-0"
                     >
                       {isSending ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -645,6 +685,93 @@ export default function ChatView({
                       )}
                     </Button>
                   </div>
+
+                  {/* Options row below input */}
+                  <div className="flex items-center gap-3 mt-3 px-1">
+                    {/* Web Search Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                      className={clsx(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                        webSearchEnabled
+                          ? 'bg-azure-500/20 text-azure-300'
+                          : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
+                      )}
+                    >
+                      <Globe size={14} />
+                      Web Search
+                    </button>
+
+                    {/* Style Selector */}
+                    <div ref={styleDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsStyleDropdownOpen(!isStyleDropdownOpen)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-void-400 hover:text-void-200 hover:bg-white/[0.05] transition-all"
+                      >
+                        <MessageSquare size={14} />
+                        <span className="capitalize">{chatStyle}</span>
+                        <ChevronDown size={12} className={clsx('transition-transform', isStyleDropdownOpen && 'rotate-180')} />
+                      </button>
+
+                      {isStyleDropdownOpen && (
+                        <div
+                          className="absolute bottom-full mb-2 left-0 w-48 rounded-xl border border-white/[0.1] shadow-2xl z-50 overflow-hidden"
+                          style={{ backgroundColor: '#0a0a0c' }}
+                        >
+                          <div className="py-1">
+                            {(['study', 'conversational', 'concise', 'custom'] as const).map((style) => (
+                              <button
+                                key={style}
+                                type="button"
+                                onClick={() => handleStyleChange(style)}
+                                className={clsx(
+                                  'w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left',
+                                  chatStyle === style
+                                    ? 'bg-ember-500/20 text-ember-300'
+                                    : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                                )}
+                              >
+                                <span className="capitalize">{style}</span>
+                                {style === 'study' && <span className="text-xs text-void-500 ml-auto">Default</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Custom Instructions Input */}
+                  {showCustomInput && (
+                    <div className="mt-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.08]">
+                      <label className="text-sm text-void-400 mb-2 block">Custom Instructions</label>
+                      <textarea
+                        value={customInstructions}
+                        onChange={(e) => setCustomInstructions(e.target.value)}
+                        placeholder="Enter your custom instructions for how the AI should respond..."
+                        rows={3}
+                        className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-void-100 placeholder:text-void-500 resize-none transition-all focus:outline-none focus:border-ember-500/50 text-sm"
+                      />
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCustomInput(false)}
+                          className="px-3 py-1.5 text-sm text-void-400 hover:text-void-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCustomInstructionsSave}
+                          className="px-4 py-1.5 text-sm bg-ember-500 text-white rounded-lg hover:bg-ember-600 transition-colors"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </form>
               </div>
             </>

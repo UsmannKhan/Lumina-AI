@@ -256,3 +256,232 @@ def generate_flashcards_with_options(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
+
+
+# ============== CRUD Endpoints ==============
+
+class FlashcardUpdateRequest(BaseModel):
+    """Request body for updating a flashcard"""
+    question: str = None
+    answer: str = None
+    hint: str = None
+    explanation: str = None
+    timestamp: str = None
+    difficulty: str = None
+
+class FlashcardCreateRequest(BaseModel):
+    """Request body for creating a manual flashcard"""
+    question: str
+    answer: str
+    hint: str = ""
+    explanation: str = ""
+    timestamp: str = ""
+    difficulty: str = "medium"
+    set_name: str
+
+class SetRenameRequest(BaseModel):
+    """Request body for renaming a set"""
+    chat_id: int
+    old_name: str
+    new_name: str
+
+class ReorderRequest(BaseModel):
+    """Request body for reordering flashcards"""
+    card_ids: List[int]  # List of card IDs in new order
+
+
+@router.put("/card/{card_id}")
+def update_flashcard(
+    card_id: int,
+    request: FlashcardUpdateRequest,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Update a flashcard's content"""
+    flashcard = db.query(models.Flashcard).filter(
+        models.Flashcard.id == card_id,
+        models.Flashcard.user_id == user['id']
+    ).first()
+    
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    # Update only provided fields
+    if request.question is not None:
+        flashcard.question = request.question
+    if request.answer is not None:
+        flashcard.answer = request.answer
+    if request.hint is not None:
+        flashcard.hint = request.hint
+    if request.explanation is not None:
+        flashcard.explanation = request.explanation
+    if request.timestamp is not None:
+        flashcard.timestamp = request.timestamp
+    if request.difficulty is not None:
+        flashcard.difficulty = request.difficulty
+    
+    db.commit()
+    
+    return {
+        "id": flashcard.id,
+        "question": flashcard.question,
+        "answer": flashcard.answer,
+        "difficulty": flashcard.difficulty,
+        "hint": flashcard.hint,
+        "timestamp": flashcard.timestamp,
+        "explanation": flashcard.explanation,
+        "set_name": flashcard.set_name
+    }
+
+
+@router.delete("/card/{card_id}")
+def delete_flashcard(
+    card_id: int,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Delete a single flashcard"""
+    flashcard = db.query(models.Flashcard).filter(
+        models.Flashcard.id == card_id,
+        models.Flashcard.user_id == user['id']
+    ).first()
+    
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    db.delete(flashcard)
+    db.commit()
+    
+    return {"message": "Flashcard deleted", "id": card_id}
+
+
+@router.post("/{chat_id}/card")
+def create_flashcard(
+    chat_id: int,
+    request: FlashcardCreateRequest,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Create a manual flashcard"""
+    # Verify chat ownership
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    flashcard = models.Flashcard(
+        chat_id=chat_id,
+        user_id=user['id'],
+        question=request.question,
+        answer=request.answer,
+        hint=request.hint,
+        explanation=request.explanation,
+        timestamp=request.timestamp,
+        difficulty=request.difficulty,
+        set_name=request.set_name
+    )
+    
+    db.add(flashcard)
+    db.commit()
+    db.refresh(flashcard)
+    
+    return {
+        "id": flashcard.id,
+        "question": flashcard.question,
+        "answer": flashcard.answer,
+        "difficulty": flashcard.difficulty,
+        "hint": flashcard.hint,
+        "timestamp": flashcard.timestamp,
+        "explanation": flashcard.explanation,
+        "set_name": flashcard.set_name
+    }
+
+
+@router.put("/set/rename")
+def rename_set(
+    request: SetRenameRequest,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Rename a flashcard set"""
+    # Update all flashcards with the old set name
+    updated = db.query(models.Flashcard).filter(
+        models.Flashcard.chat_id == request.chat_id,
+        models.Flashcard.user_id == user['id'],
+        models.Flashcard.set_name == request.old_name
+    ).update({"set_name": request.new_name})
+    
+    if updated == 0:
+        raise HTTPException(status_code=404, detail="Set not found")
+    
+    db.commit()
+    
+    return {"message": f"Set renamed from '{request.old_name}' to '{request.new_name}'", "updated_count": updated}
+
+
+@router.delete("/set/{chat_id}/{set_name}")
+def delete_set(
+    chat_id: int,
+    set_name: str,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Delete an entire flashcard set"""
+    deleted = db.query(models.Flashcard).filter(
+        models.Flashcard.chat_id == chat_id,
+        models.Flashcard.user_id == user['id'],
+        models.Flashcard.set_name == set_name
+    ).delete()
+    
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Set not found")
+    
+    db.commit()
+    
+    return {"message": f"Set '{set_name}' deleted", "deleted_count": deleted}
+
+
+@router.put("/reorder")
+def reorder_flashcards(
+    request: ReorderRequest,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Reorder flashcards - card_ids should be in desired order"""
+    # Verify all cards belong to user and get them
+    cards = db.query(models.Flashcard).filter(
+        models.Flashcard.id.in_(request.card_ids),
+        models.Flashcard.user_id == user['id']
+    ).all()
+    
+    if len(cards) != len(request.card_ids):
+        raise HTTPException(status_code=400, detail="Some flashcards not found or not owned by user")
+    
+    # Create ID to card mapping for efficient lookup
+    card_map = {c.id: c for c in cards}
+    
+    # Update order (we'll use the card ID order as implicit ordering)
+    # Since SQLAlchemy doesn't have a built-in order column, we'll return the reordered list
+    # The frontend will maintain the display order
+    reordered = [card_map[cid] for cid in request.card_ids if cid in card_map]
+    
+    return {
+        "message": "Reorder successful",
+        "flashcards": [
+            {
+                "id": f.id,
+                "question": f.question,
+                "answer": f.answer,
+                "difficulty": f.difficulty,
+                "hint": f.hint,
+                "timestamp": f.timestamp,
+                "explanation": f.explanation,
+                "set_name": f.set_name
+            }
+            for f in reordered
+        ]
+    }
+

@@ -23,6 +23,8 @@ class Chat(Base):
     notes = Column(Text, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     session_name = Column(String, nullable=False)
+    chat_style = Column(String, default="study")  # study, conversational, concise, custom
+    custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
 
 
 class Message(Base):

@@ -212,29 +212,55 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from google.genai import types
 
 router = APIRouter(
     prefix='/messages',
     tags=['Messages']
 )
 
-# Improved conversational prompt
-CHAT_PROMPT = """You are a knowledgeable assistant helping someone understand and discuss a YouTube video they just watched or are watching currently.
+# ============== Chat Style Prompts ==============
 
-## Your Personality:
-- Friendly and conversational, like a smart friend explaining things
-- Confident in your answers but open to discussion
-- You CAN share opinions and perspectives when asked - users want engagement, not disclaimers
-- Use casual language, contractions, and natural speech patterns
+STYLE_PROMPTS = {
+    "study": """You are an expert tutor helping someone deeply understand a YouTube video's content.
+
+## Your Approach:
+- Provide detailed explanations with examples when helpful
+- Break down complex concepts into digestible parts
+- Use analogies to connect new ideas to familiar ones
+- Encourage deeper thinking with follow-up questions when appropriate
+- Cite specific parts of the video when relevant
 
 ## Rules:
-- Base answers on the video transcript provided, the prior conversation history as the primary focus but also your own knowledge if helpful to supplement the answer
-- If asked for opinions (e.g., "do you agree?", "what do you think?"), engage thoughtfully - analyze pros/cons, share a perspective
-- Don't start responses with "Great question!" or similar filler
-- Don't say "As an AI..." or give disclaimers about being AI
-- Use markdown formatting: **bold** for emphasis, bullet points for lists
-- Keep responses focused - if the answer is simple, keep it short
-- If something isn't in the transcript, tell the user that the video doesn't cover it if they do not know and use your own vast knowledge to answer if helpful
+- Base answers on the video transcript provided and conversation history
+- Use markdown: **bold** for key terms, bullet points for steps/lists, `code` for technical terms
+- If something isn't covered in the video, say so and supplement with your knowledge
+- Don't start with filler like "Great question!"
+- Don't say "As an AI..." or give disclaimers
+
+## Video Transcript:
+{transcript}
+
+{conversation_history}
+
+## Student's Question: {question}
+
+## Your explanation:""",
+
+    "conversational": """You are a knowledgeable friend chatting about a YouTube video.
+
+## Your Personality:
+- Casual and friendly, like texting with a smart friend
+- Use contractions & natural speech patterns
+- Share opinions when asked - be engaging, not robotic
+- Keep it chill but informative
+
+## Rules:
+- Base answers on the video transcript and prior conversation
+- Keep responses focused - short answers for simple questions
+- Use markdown when helpful: **bold**, bullet points
+- If the video doesn't cover something, say so and share what you know
+- No filler phrases, no AI disclaimers
 
 ## Video Transcript:
 {transcript}
@@ -243,11 +269,61 @@ CHAT_PROMPT = """You are a knowledgeable assistant helping someone understand an
 
 ## User: {question}
 
+## Your response:""",
+
+    "concise": """You are a helpful assistant providing brief, direct answers about a YouTube video.
+
+## Rules:
+- Be direct and to the point - no fluff
+- Use bullet points for multiple items
+- One-sentence answers when possible
+- Only elaborate if the question requires it
+- Base answers on the video transcript
+- If not in video, briefly supplement from your knowledge
+
+## Video Transcript:
+{transcript}
+
+{conversation_history}
+
+## Question: {question}
+
+## Answer:"""
+}
+
+def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
+    """Get the appropriate prompt based on chat style."""
+    style = getattr(chat, 'chat_style', 'study') or 'study'
+    
+    if style == 'custom':
+        custom_instructions = getattr(chat, 'custom_instructions', '') or ''
+        if custom_instructions.strip():
+            # Custom style uses user's instructions as the base prompt
+            return f"""{custom_instructions}
+
+## Video Transcript:
+{chat.youtube_transcript}
+
+{conversation_history}
+
+## User: {question}
+
 ## Your response:"""
+        else:
+            # Fall back to study if no custom instructions
+            style = 'study'
+    
+    template = STYLE_PROMPTS.get(style, STYLE_PROMPTS['study'])
+    return template.format(
+        transcript=chat.youtube_transcript,
+        question=question,
+        conversation_history=conversation_history
+    )
 
 
 @router.post("/")
 def create_message(message: schemas.CreateMessage, user: user_dependency, db: Session = Depends(get_db)):
+    
     # Get the chat and verify ownership
     chat = db.query(models.Chat).filter(
         models.Chat.id == message.chat_id, 
@@ -274,16 +350,42 @@ def create_message(message: schemas.CreateMessage, user: user_dependency, db: Se
             conversation_history += f"User: {msg.input}\n"
             conversation_history += f"You: {msg.output}\n\n"
     
+    prompt = get_chat_prompt(chat, message.input, conversation_history)
+    
+    # Configure grounding with Google Search if enabled
+    config = None
+    if message.use_web_search:
+        grounding_tool = types.Tool(google_search=types.GoogleSearch())
+        config = types.GenerateContentConfig(tools=[grounding_tool])
+    
     # Generate response
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=CHAT_PROMPT.format(
-            transcript=chat.youtube_transcript,
-            question=message.input,
-            conversation_history=conversation_history
-        ),
+        contents=prompt,
+        config=config
     )
     output = response.text
+    
+    # Extract citations if grounding was used
+    citations = []
+    if message.use_web_search and response.candidates:
+        candidate = response.candidates[0]
+        if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
+            metadata = candidate.grounding_metadata
+            if hasattr(metadata, 'grounding_chunks') and metadata.grounding_chunks:
+                for i, chunk in enumerate(metadata.grounding_chunks):
+                    if hasattr(chunk, 'web') and chunk.web:
+                        citations.append({
+                            "index": i + 1,
+                            "title": chunk.web.title if hasattr(chunk.web, 'title') else "",
+                            "uri": chunk.web.uri if hasattr(chunk.web, 'uri') else ""
+                        })
+    
+    # Append citations to output if any
+    if citations:
+        output += "\n\n---\n**Sources:**\n"
+        for cite in citations:
+            output += f"- [{cite['title']}]({cite['uri']})\n"
 
     # Save message
     new_message = models.Message(

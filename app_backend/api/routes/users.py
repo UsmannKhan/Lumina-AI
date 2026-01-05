@@ -1,7 +1,5 @@
-from typing import List
-from fastapi import HTTPException, Depends
+from fastapi import Depends
 from sqlalchemy.orm import Session 
-from starlette import status
 from .. import models
 from .. import schemas
 from fastapi import APIRouter

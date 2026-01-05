@@ -17,6 +17,8 @@ class ChatOut(BaseModel):
     prompt: str
     notes: str
     user_id: int
+    chat_style: Optional[str] = "study"
+    custom_instructions: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -32,6 +34,11 @@ class UserOut(BaseModel):
 class CreateMessage(BaseModel):
     input: str
     chat_id: int
+    use_web_search: bool = False
+
+class ChatStyleUpdate(BaseModel):
+    style: str  # study, conversational, concise, custom
+    custom_instructions: Optional[str] = None
 
 class MessageOut(BaseModel):
     id: int
@@ -58,6 +65,7 @@ class FlashcardOut(BaseModel):
     hint: Optional[str] = None 
     timestamp: Optional[str] = None 
     explanation: Optional[str] = None
+    set_name: Optional[str] = None
     
     class Config:
         from_attributes = True

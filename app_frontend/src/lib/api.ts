@@ -1,4 +1,4 @@
-import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse } from '@/types';
+import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse, Flashcard, FlashcardUpdateRequest, FlashcardCreateRequest, SetRenameRequest } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -106,10 +106,10 @@ class ApiClient {
     return this.request<Message[]>(`/messages/${chatId}`);
   }
 
-  async createMessage(input: string, chatId: number): Promise<CreateMessageResponse> {
+  async createMessage(input: string, chatId: number, useWebSearch: boolean = false): Promise<CreateMessageResponse> {
     return this.request<CreateMessageResponse>('/messages/', {
       method: 'POST',
-      body: JSON.stringify({ input, chat_id: chatId }),
+      body: JSON.stringify({ input, chat_id: chatId, use_web_search: useWebSearch }),
     });
   }
 
@@ -188,6 +188,54 @@ class ApiClient {
     return this.request<CodeEvaluationResponse>(`/code/${chatId}/evaluate`, {
       method: 'POST',
       body: JSON.stringify(request),
+    });
+  }
+
+  // Flashcard CRUD
+  async updateFlashcard(cardId: number, updates: FlashcardUpdateRequest): Promise<Flashcard> {
+    return this.request<Flashcard>(`/flashcards/card/${cardId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteFlashcard(cardId: number): Promise<{ message: string; id: number }> {
+    return this.request<{ message: string; id: number }>(`/flashcards/card/${cardId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createFlashcard(chatId: number, card: FlashcardCreateRequest): Promise<Flashcard> {
+    return this.request<Flashcard>(`/flashcards/${chatId}/card`, {
+      method: 'POST',
+      body: JSON.stringify(card),
+    });
+  }
+
+  async renameSet(request: SetRenameRequest): Promise<{ message: string; updated_count: number }> {
+    return this.request<{ message: string; updated_count: number }>('/flashcards/set/rename', {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async deleteSet(chatId: number, setName: string): Promise<{ message: string; deleted_count: number }> {
+    return this.request<{ message: string; deleted_count: number }>(`/flashcards/set/${chatId}/${encodeURIComponent(setName)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateChatStyle(chatId: number, style: string, customInstructions?: string): Promise<{ message: string; chat_id: number; style: string; custom_instructions: string | null }> {
+    return this.request<{ message: string; chat_id: number; style: string; custom_instructions: string | null }>(`/chats/${chatId}/style`, {
+      method: 'PUT',
+      body: JSON.stringify({ style, custom_instructions: customInstructions }),
+    });
+  }
+
+  async reorderFlashcards(cardIds: number[]): Promise<FlashcardsResponse> {
+    return this.request<FlashcardsResponse>('/flashcards/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ card_ids: cardIds }),
     });
   }
 }

@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { SparklesIcon } from './Icons';
 import Button from './Button';
 import { api } from '@/lib/api';
-import { Flashcard, KeyConcept } from '@/types';
+import { Flashcard, KeyConcept, FlashcardCreateRequest } from '@/types';
 import clsx from 'clsx';
-import { Shuffle, ChevronLeft, ChevronRight, RotateCcw, Loader2, RefreshCw, Lightbulb, Clock, Info, Settings, X } from 'lucide-react';
+import { Shuffle, ChevronLeft, ChevronRight, RotateCcw, Loader2, RefreshCw, Lightbulb, Clock, Info, Settings, X, Pencil, Trash2, Plus, Check, ArrowUp, ArrowDown, Save } from 'lucide-react';
 
 interface FlashcardsViewProps {
   chatId: number;
@@ -37,6 +37,18 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
   const [existingSets, setExistingSets] = useState<Flashcard[]>([]); // All flashcards for listing
   const [activeSetName, setActiveSetName] = useState<string>(''); // Currently viewing set name
 
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<Flashcard>>({});
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
+  const [newCardData, setNewCardData] = useState<FlashcardCreateRequest>({
+    question: '', answer: '', hint: '', explanation: '', timestamp: '', difficulty: 'medium', set_name: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRenamingSet, setIsRenamingSet] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     // Reset and load data for new chat
@@ -238,6 +250,134 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
     }
   };
 
+  // ============== CRUD Functions ==============
+
+  const startEditing = (card: Flashcard) => {
+    setEditingCardId(card.id);
+    setEditFormData({
+      question: card.question,
+      answer: card.answer,
+      hint: card.hint,
+      explanation: card.explanation,
+      timestamp: card.timestamp,
+      difficulty: card.difficulty
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingCardId) return;
+    setIsSaving(true);
+    try {
+      const updated = await api.updateFlashcard(editingCardId, editFormData);
+      setFlashcards(prev => prev.map(c => c.id === editingCardId ? updated : c));
+      setExistingSets(prev => prev.map(c => c.id === editingCardId ? updated : c));
+      setEditingCardId(null);
+      setEditFormData({});
+    } catch (err) {
+      console.error('Failed to save:', err);
+      setError('Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingCardId(null);
+    setEditFormData({});
+  };
+
+  const deleteCard = async (cardId: number) => {
+    setIsSaving(true);
+    try {
+      await api.deleteFlashcard(cardId);
+      setFlashcards(prev => prev.filter(c => c.id !== cardId));
+      setExistingSets(prev => prev.filter(c => c.id !== cardId));
+      setDeleteConfirmId(null);
+      // Adjust current index if needed
+      if (currentIndex >= flashcards.length - 1) {
+        setCurrentIndex(Math.max(0, flashcards.length - 2));
+      }
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      setError('Failed to delete card');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const createCard = async () => {
+    if (!newCardData.question.trim() || !newCardData.answer.trim()) return;
+    setIsSaving(true);
+    try {
+      const created = await api.createFlashcard(chatId, {
+        ...newCardData,
+        set_name: activeSetName
+      });
+      setFlashcards(prev => [...prev, created]);
+      setExistingSets(prev => [...prev, created]);
+      setIsCreatingCard(false);
+      setNewCardData({
+        question: '', answer: '', hint: '', explanation: '', timestamp: '', difficulty: 'medium', set_name: ''
+      });
+    } catch (err) {
+      console.error('Failed to create:', err);
+      setError('Failed to create card');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const moveCard = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= flashcards.length) return;
+
+    const newCards = [...flashcards];
+    [newCards[index], newCards[newIndex]] = [newCards[newIndex], newCards[index]];
+    setFlashcards(newCards);
+
+    // Update current index if viewing the moved card
+    if (currentIndex === index) setCurrentIndex(newIndex);
+    else if (currentIndex === newIndex) setCurrentIndex(index);
+  };
+
+  const handleRenameSet = async () => {
+    if (!newSetName.trim() || newSetName === activeSetName) {
+      setIsRenamingSet(false);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await api.renameSet({ chat_id: chatId, old_name: activeSetName, new_name: newSetName });
+      // Update local state
+      setFlashcards(prev => prev.map(c => ({ ...c, set_name: newSetName })));
+      setExistingSets(prev => prev.map(c =>
+        c.set_name === activeSetName ? { ...c, set_name: newSetName } : c
+      ));
+      setActiveSetName(newSetName);
+      setIsRenamingSet(false);
+    } catch (err) {
+      console.error('Failed to rename:', err);
+      setError('Failed to rename set');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteEntireSet = async () => {
+    setIsSaving(true);
+    try {
+      await api.deleteSet(chatId, activeSetName);
+      setExistingSets(prev => prev.filter(c => c.set_name !== activeSetName));
+      setFlashcards([]);
+      setViewMode('config');
+    } catch (err) {
+      console.error('Failed to delete set:', err);
+      setError('Failed to delete set');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const currentCard = flashcards[currentIndex];
 
   const difficultyColors = {
@@ -433,34 +573,106 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Button onClick={() => setViewMode('config')} variant="ghost" size="sm" title="Back to config">
+            <Button onClick={() => { setViewMode('config'); setIsEditMode(false); }} variant="ghost" size="sm" title="Back to config">
               <ChevronLeft size={18} />
             </Button>
             <div>
-              <h2 className="font-display font-semibold text-xl text-white">{activeSetName}</h2>
+              {isRenamingSet ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newSetName}
+                    onChange={(e) => setNewSetName(e.target.value)}
+                    className="px-2 py-1 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white text-lg font-display font-semibold focus:outline-none focus:border-ember-500/50"
+                    autoFocus
+                    onKeyDown={(e) => e.key === 'Enter' && handleRenameSet()}
+                  />
+                  <Button onClick={handleRenameSet} variant="ghost" size="sm" disabled={isSaving}>
+                    <Check size={16} className="text-emerald-400" />
+                  </Button>
+                  <Button onClick={() => setIsRenamingSet(false)} variant="ghost" size="sm">
+                    <X size={16} />
+                  </Button>
+                </div>
+              ) : (
+                <h2
+                  className={clsx(
+                    "font-display font-semibold text-xl text-white",
+                    isEditMode && "cursor-pointer hover:text-ember-300"
+                  )}
+                  onClick={() => {
+                    if (isEditMode) {
+                      setNewSetName(activeSetName);
+                      setIsRenamingSet(true);
+                    }
+                  }}
+                  title={isEditMode ? "Click to rename set" : undefined}
+                >
+                  {activeSetName}
+                </h2>
+              )}
               <p className="text-sm text-void-500">
                 Card {currentIndex + 1} of {flashcards.length}
               </p>
             </div>
           </div>
 
-
           <div className="flex items-center gap-2">
-            <Button onClick={shuffleCards} variant="ghost" size="sm" title="Shuffle cards (S)">
-              <Shuffle size={16} />
-            </Button>
-            <Button onClick={resetCards} variant="ghost" size="sm" title="Reset to first card (R)">
-              <RotateCcw size={16} />
-            </Button>
+            {/* Edit mode toggle */}
             <Button
-              onClick={regenerateFlashcards}
-              variant="ghost"
+              onClick={() => setIsEditMode(!isEditMode)}
+              variant={isEditMode ? "primary" : "ghost"}
               size="sm"
-              title="Regenerate flashcards"
-              disabled={isRegenerating}
+              title={isEditMode ? "Exit edit mode" : "Edit mode"}
             >
-              <RefreshCw size={16} className={isRegenerating ? 'animate-spin' : ''} />
+              <Pencil size={16} />
             </Button>
+
+            {isEditMode ? (
+              <>
+                <Button
+                  onClick={() => {
+                    setNewCardData({ ...newCardData, set_name: activeSetName });
+                    setIsCreatingCard(true);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  title="Add new card"
+                >
+                  <Plus size={16} />
+                  <span className="ml-1">New Card</span>
+                </Button>
+                <Button
+                  onClick={deleteEntireSet}
+                  variant="ghost"
+                  size="sm"
+                  title="Delete entire set"
+                  disabled={isSaving}
+                  className="text-red-400 hover:text-red-300"
+                >
+                  <Trash2 size={16} />
+                  <span className="ml-1">Delete Set</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={shuffleCards} variant="ghost" size="sm" title="Shuffle cards (S)">
+                  <Shuffle size={16} />
+                </Button>
+                <Button onClick={resetCards} variant="ghost" size="sm" title="Reset to first card (R)">
+                  <RotateCcw size={16} />
+                </Button>
+                <Button
+                  onClick={regenerateFlashcards}
+                  variant="ghost"
+                  size="sm"
+                  title="Regenerate flashcards"
+                  disabled={isRegenerating}
+                >
+                  <RefreshCw size={16} className={isRegenerating ? 'animate-spin' : ''} />
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -504,17 +716,73 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       : "bg-gradient-to-br from-white/[0.03] to-white/[0.01] border-white/[0.08]"
                 )}
               >
-                {/* Top row: Label and Difficulty aligned */}
+                {/* Top row: Label, Difficulty, and Edit Mode Controls */}
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs text-void-500 uppercase tracking-wider">
-                    {showExplanation ? 'Explanation' : (isFlipped ? 'Answer' : 'Question')}
-                  </p>
-                  <span className={clsx(
-                    "px-2 py-1 rounded-full text-xs font-medium border",
-                    difficultyColors[currentCard.difficulty]
-                  )}>
-                    {currentCard.difficulty}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-void-500 uppercase tracking-wider">
+                      {showExplanation ? 'Explanation' : (isFlipped ? 'Answer' : 'Question')}
+                    </p>
+                    <span className={clsx(
+                      "px-2 py-1 rounded-full text-xs font-medium border",
+                      difficultyColors[currentCard.difficulty]
+                    )}>
+                      {currentCard.difficulty}
+                    </span>
+                  </div>
+                  {/* Card controls - only in edit mode */}
+                  {isEditMode && currentCard && (
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => moveCard(currentIndex, 'up')}
+                        disabled={currentIndex === 0}
+                        className="p-1 text-void-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Move up"
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        onClick={() => moveCard(currentIndex, 'down')}
+                        disabled={currentIndex === flashcards.length - 1}
+                        className="p-1 text-void-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Move down"
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        onClick={() => startEditing(currentCard)}
+                        className="p-1 text-void-400 hover:text-ember-400 transition-colors"
+                        title="Edit card"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      {deleteConfirmId === currentCard.id ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-red-400">Delete?</span>
+                          <button
+                            onClick={() => deleteCard(currentCard.id)}
+                            disabled={isSaving}
+                            className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="p-1 text-void-400 hover:text-white transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirmId(currentCard.id)}
+                          className="p-1 text-void-400 hover:text-red-400 transition-colors"
+                          title="Delete card"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -622,13 +890,187 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
           </Button>
         </div>
 
+        {/* Card controls moved to card surface (top-right) */}
+
         {/* Keyboard hint */}
-        <p className="text-center text-xs text-void-600 pb-4">
-          <span className="hidden sm:inline">
-            Space to flip • Arrow keys to navigate • H for hint • S to shuffle • R to reset
-          </span>
-          <span className="sm:hidden">Tap card to flip</span>
-        </p>
+        {!isEditMode && (
+          <p className="text-center text-xs text-void-600 pb-4">
+            <span className="hidden sm:inline">
+              Space to flip • Arrow keys to navigate • H for hint • S to shuffle • R to reset
+            </span>
+            <span className="sm:hidden">Tap card to flip</span>
+          </p>
+        )}
+
+        {/* Edit Card Modal */}
+        {editingCardId !== null && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-void-900 border border-white/[0.1] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-display font-semibold text-white">Edit Flashcard</h3>
+                <Button onClick={cancelEdit} variant="ghost" size="sm"><X size={18} /></Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Question</label>
+                  <textarea
+                    value={editFormData.question || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, question: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Answer</label>
+                  <textarea
+                    value={editFormData.answer || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, answer: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-void-400 mb-1 block">Hint</label>
+                    <input
+                      type="text"
+                      value={editFormData.hint || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, hint: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-void-400 mb-1 block">Timestamp</label>
+                    <input
+                      type="text"
+                      value={editFormData.timestamp || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, timestamp: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      placeholder="00:00"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Explanation</label>
+                  <textarea
+                    value={editFormData.explanation || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, explanation: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Difficulty</label>
+                  <select
+                    value={editFormData.difficulty || 'medium'}
+                    onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
+                    className="w-full px-3 py-2 bg-void-800 border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button onClick={cancelEdit} variant="secondary">Cancel</Button>
+                <Button onClick={saveEdit} variant="primary" disabled={isSaving}>
+                  {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Card Modal */}
+        {isCreatingCard && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-void-900 border border-white/[0.1] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-display font-semibold text-white">Create New Flashcard</h3>
+                <Button onClick={() => setIsCreatingCard(false)} variant="ghost" size="sm"><X size={18} /></Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Question *</label>
+                  <textarea
+                    value={newCardData.question}
+                    onChange={(e) => setNewCardData({ ...newCardData, question: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={3}
+                    placeholder="Enter the question..."
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Answer *</label>
+                  <textarea
+                    value={newCardData.answer}
+                    onChange={(e) => setNewCardData({ ...newCardData, answer: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={3}
+                    placeholder="Enter the answer..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-void-400 mb-1 block">Hint</label>
+                    <input
+                      type="text"
+                      value={newCardData.hint}
+                      onChange={(e) => setNewCardData({ ...newCardData, hint: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-void-400 mb-1 block">Timestamp</label>
+                    <input
+                      type="text"
+                      value={newCardData.timestamp}
+                      onChange={(e) => setNewCardData({ ...newCardData, timestamp: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      placeholder="00:00"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Explanation</label>
+                  <textarea
+                    value={newCardData.explanation}
+                    onChange={(e) => setNewCardData({ ...newCardData, explanation: e.target.value })}
+                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-void-400 mb-1 block">Difficulty</label>
+                  <select
+                    value={newCardData.difficulty}
+                    onChange={(e) => setNewCardData({ ...newCardData, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
+                    className="w-full px-3 py-2 bg-void-800 border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button onClick={() => setIsCreatingCard(false)} variant="secondary">Cancel</Button>
+                <Button onClick={createCard} variant="primary" disabled={isSaving || !newCardData.question.trim() || !newCardData.answer.trim()}>
+                  {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Plus size={16} className="mr-2" />}
+                  Create Card
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

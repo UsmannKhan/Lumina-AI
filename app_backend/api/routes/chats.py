@@ -331,3 +331,44 @@ def get_chat_concepts(chat_id: int, user: user_dependency, db: Session = Depends
         }
         for c in concepts
     ]
+
+
+@router.put("/{chat_id}/style")
+def update_chat_style(chat_id: int, request: schemas.ChatStyleUpdate, user: user_dependency, db: Session = Depends(get_db)):
+    """Update the chat style and custom instructions for a chat."""
+    # Verify ownership
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    # Validate style
+    valid_styles = ["study", "conversational", "concise", "custom"]
+    if request.style not in valid_styles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid style. Must be one of: {', '.join(valid_styles)}"
+        )
+    
+    # Update chat
+    chat.chat_style = request.style
+    if request.style == "custom":
+        chat.custom_instructions = request.custom_instructions
+    else:
+        chat.custom_instructions = None
+    
+    db.commit()
+    
+    return {
+        "message": "Chat style updated",
+        "chat_id": chat_id,
+        "style": chat.chat_style,
+        "custom_instructions": chat.custom_instructions
+    }
+

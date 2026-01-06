@@ -18,6 +18,7 @@ interface TranscriptViewProps {
   isAutoScrollControlled?: boolean;
   autoScrollValue?: boolean;
   onAutoScrollChange?: (value: boolean) => void;
+  isExpanded?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -68,7 +69,8 @@ export default function TranscriptView({
   hideHeader = false,
   isAutoScrollControlled = false,
   autoScrollValue = true,
-  onAutoScrollChange
+  onAutoScrollChange,
+  isExpanded = false
 }: TranscriptViewProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [isAutoScrollInternal, setIsAutoScrollInternal] = useState(true);
@@ -270,12 +272,12 @@ export default function TranscriptView({
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-lg bg-azure-500/20">
-              <FileTextIcon size={20} className="text-azure-400" />
+            <div className="p-2 rounded-lg bg-blue-500/20">
+              <FileTextIcon size={20} className="text-blue-400" />
             </div>
-            <h2 className="font-display font-semibold text-xl text-white">Full Transcript</h2>
+            <h2 className="font-display font-semibold text-xl text-gray-800">Full Transcript</h2>
           </div>
-          <div className="text-void-300 leading-relaxed whitespace-pre-wrap font-body">
+          <div className="text-gray-300 leading-relaxed whitespace-pre-wrap font-body">
             {transcript}
           </div>
         </div>
@@ -287,15 +289,15 @@ export default function TranscriptView({
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header - only show when not hideHeader */}
       {!hideHeader && (
-        <div className="flex-shrink-0 p-4 border-b border-white/[0.06]">
+        <div className="flex-shrink-0 p-4 border-b border-gray-200">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-azure-500/20">
-                <FileTextIcon size={20} className="text-azure-400" />
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <FileTextIcon size={20} className="text-blue-400" />
               </div>
               <div>
-                <h2 className="font-display font-semibold text-lg text-white">Transcript</h2>
-                <p className="text-xs text-void-500">
+                <h2 className="font-display font-semibold text-lg text-gray-800">Transcript</h2>
+                <p className="text-xs text-gray-500">
                   Click to jump • {isPlaying ? 'Playing' : 'Paused'}
                 </p>
               </div>
@@ -308,8 +310,8 @@ export default function TranscriptView({
                 className={clsx(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                   isAutoScroll
-                    ? "bg-azure-500/20 text-azure-300"
-                    : "bg-white/[0.05] text-void-400 hover:text-void-200"
+                    ? "bg-blue-500/20 text-blue-300"
+                    : "bg-white/[0.05] text-gray-400 hover:text-gray-200"
                 )}
               >
                 <span className="hidden sm:inline">Auto-scroll</span>
@@ -319,51 +321,44 @@ export default function TranscriptView({
         </div>
       )}
 
-      {/* Transcript content */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className={clsx("flex-1 overflow-y-auto", hideHeader ? "p-2" : "p-6")}
+        className={clsx("flex-1 overflow-y-auto bg-white/30", hideHeader ? "p-2" : "p-6")}
       >
-        <div className="max-w-3xl mx-auto space-y-1">
+        <div className={clsx("mx-auto space-y-1", isExpanded ? "max-w-none px-4" : "max-w-3xl")}>
           {transcriptTimed.map((segment, index) => (
             <button
               key={index}
               ref={el => { segmentRefs.current[index] = el; }}
               onClick={() => handleTimestampClick(segment.start, index)}
               className={clsx(
-                "w-full text-left px-3 py-2 rounded-lg transition-all group flex gap-3",
+                "w-full text-left px-3 py-2 rounded-lg transition-all group flex gap-3 border",
                 activeIndex === index
-                  ? "bg-azure-500/20 border border-azure-500/30"
-                  : "hover:bg-white/[0.03] border border-transparent"
+                  ? "bg-[#0C115B]/10 border-[#0C115B]/20 shadow-sm"
+                  : "hover:bg-white hover:border-gray-200 hover:shadow-sm border-transparent"
               )}
             >
               {/* Timestamp */}
               <span className={clsx(
-                "flex-shrink-0 text-xs font-mono tabular-nums pt-0.5 transition-colors min-w-[45px]",
+                "flex-shrink-0 font-mono tabular-nums pt-0.5 transition-colors min-w-[45px]",
+                isExpanded ? "text-sm" : "text-xs",
                 activeIndex === index
-                  ? "text-azure-400"
-                  : "text-void-600 group-hover:text-void-400"
+                  ? "text-[#0C115B] font-semibold"
+                  : "text-gray-500 group-hover:text-gray-900"
               )}>
                 {formatTime(segment.start)}
               </span>
 
-              {/* Text */}
               <span className={clsx(
-                "flex-1 transition-colors leading-relaxed",
+                "flex-1 transition-colors leading-relaxed font-medium",
+                isExpanded ? "text-lg" : "text-base",
                 activeIndex === index
-                  ? "text-white"
-                  : "text-void-300 group-hover:text-void-200"
+                  ? "text-[#0C115B]"
+                  : "text-gray-600 group-hover:text-gray-900"
               )}>
                 {segment.text}
               </span>
-
-              {/* Play indicator for active */}
-              {/* {activeIndex === index && isPlaying && (
-                <span className="flex-shrink-0 text-azure-400 animate-pulse">
-                  <Play size={14} fill="currentColor" />
-                </span>
-              )} */}
             </button>
           ))}
         </div>
@@ -371,3 +366,4 @@ export default function TranscriptView({
     </div>
   );
 }
+

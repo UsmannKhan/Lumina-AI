@@ -63,18 +63,37 @@ def parse_key_concepts(notes: str) -> list:
     
     concepts = []
     
+    print(f"\n=== DEBUG: Parsing key concepts ===")
+    print(f"Notes length: {len(notes)}")
+    
     # Look for the Key Concepts section
     key_concepts_match = re.search(r'##\s*Key Concepts.*?(?=##|\Z)', notes, re.DOTALL | re.IGNORECASE)
     if not key_concepts_match:
+        print("DEBUG: No '## Key Concepts' section found in notes")
+        # Try alternative patterns
+        alt_match = re.search(r'\*\*Key Concepts\*\*.*?(?=\*\*[A-Z]|\Z)', notes, re.DOTALL | re.IGNORECASE)
+        if alt_match:
+            print(f"DEBUG: Found alt pattern '**Key Concepts**': {alt_match.group()[:200]}...")
         return concepts
     
     key_concepts_section = key_concepts_match.group()
+    print(f"DEBUG: Found Key Concepts section ({len(key_concepts_section)} chars):")
+    print(key_concepts_section[:500])
     
-    # Pattern: - **[Title]** (MM:SS - MM:SS): Description
-    # Also handles variations like **Title** or just Title
-    pattern = r'-\s*\*\*\[?([^\]]*?)\]?\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n-|\n\n|\Z)'
+    # Pattern: Handles both:
+    # - **Title** (MM:SS - MM:SS): Description  (dash list)
+    # *   **Title** (MM:SS - MM:SS): Description  (asterisk list)
+    # The key is matching **Title** followed by timestamp and description
+    pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
     
     matches = re.findall(pattern, key_concepts_section, re.DOTALL)
+    print(f"DEBUG: Found {len(matches)} matches with primary pattern")
+    
+    if not matches:
+        # Fallback: Even more flexible pattern for edge cases
+        alt_pattern = r'\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n.*?\*\*|\n\n|\Z)'
+        matches = re.findall(alt_pattern, key_concepts_section, re.DOTALL)
+        print(f"DEBUG: Found {len(matches)} matches with alt pattern")
     
     for match in matches:
         title, start_str, end_str, description = match
@@ -93,7 +112,9 @@ def parse_key_concepts(notes: str) -> list:
             'end_time': time_to_seconds(end_str),
             'importance': 2  # Default importance
         })
+        print(f"DEBUG: Extracted concept: {title.strip()}")
     
+    print(f"=== DEBUG: Parsed {len(concepts)} concepts ===\n")
     return concepts
 
 

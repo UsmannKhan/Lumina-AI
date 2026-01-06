@@ -154,6 +154,13 @@ class ApiClient {
     });
   }
 
+  async completeQuiz(quizId: number, score: number): Promise<{ message: string; quiz_id: number; score: number }> {
+    return this.request<{ message: string; quiz_id: number; score: number }>(`/quiz/${quizId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify({ score }),
+    });
+  }
+
   // Key Concepts
   async getConcepts(chatId: number): Promise<KeyConcept[]> {
     return this.request<KeyConcept[]>(`/chats/${chatId}/concepts`);
@@ -221,6 +228,12 @@ class ApiClient {
 
   async deleteSet(chatId: number, setName: string): Promise<{ message: string; deleted_count: number }> {
     return this.request<{ message: string; deleted_count: number }>(`/flashcards/set/${chatId}/${encodeURIComponent(setName)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteQuiz(quizId: number): Promise<{ message: string; id: number }> {
+    return this.request<{ message: string; id: number }>(`/quiz/${quizId}`, {
       method: 'DELETE',
     });
   }

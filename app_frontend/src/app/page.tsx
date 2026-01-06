@@ -109,11 +109,18 @@ export default function Dashboard() {
   // Auth loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          backgroundImage: 'url(/images/app-background.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-2 border-ember-500/20 border-t-ember-500 animate-spin" />
+          <div className="w-16 h-16 rounded-full border-2 border-[#0C115B]/20 border-t-[#0C115B] animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-ember-500/20" />
+            <div className="w-8 h-8 rounded-full bg-[#0C115B]/10" />
           </div>
         </div>
       </div>
@@ -127,7 +134,7 @@ export default function Dashboard() {
 
   // Main dashboard
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-white">
       {/* Sidebar */}
       <ChatSidebar
         chats={chats}

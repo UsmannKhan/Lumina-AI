@@ -1,6 +1,14 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: 'Lumina AI | YouTube Video Intelligence',
@@ -13,11 +21,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased">
+    <html lang="en" className={`${inter.variable}`}>
+      <body className="font-sans antialiased">
         <AuthProvider>
-          <div className="noise-overlay" />
-          <div className="ambient-bg" />
+          <div className="grain-overlay" />
           {children}
         </AuthProvider>
       </body>

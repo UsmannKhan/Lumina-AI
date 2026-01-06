@@ -412,29 +412,29 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
 
     return (
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           {/* Centered Header */}
-          <h2 className="text-lg font-display font-semibold text-white text-center mb-4">Generate Flashcards</h2>
+          <h2 className="text-lg font-display font-semibold text-gray-800 text-center mb-4">Generate Flashcards</h2>
 
           {isLoadingConfig ? (
             // Skeleton Loading
             <div className="space-y-4 animate-pulse">
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <div className="h-3 bg-void-700 rounded w-12 mb-2" />
-                  <div className="h-4 bg-void-700 rounded w-full" />
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="h-3 bg-gray-700 rounded w-12 mb-2" />
+                  <div className="h-4 bg-gray-700 rounded w-full" />
                 </div>
-                <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <div className="h-3 bg-void-700 rounded w-12 mb-2" />
-                  <div className="h-4 bg-void-700 rounded w-full" />
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="h-3 bg-gray-700 rounded w-12 mb-2" />
+                  <div className="h-4 bg-gray-700 rounded w-full" />
                 </div>
               </div>
-              <div className="h-10 bg-void-700/50 rounded-xl" />
-              <div className="h-10 bg-void-700/50 rounded-xl" />
-              <div className="h-10 bg-ember-500/20 rounded-xl" />
-              <div className="mt-6 pt-6 border-t border-white/[0.06]">
-                <div className="h-4 bg-void-700 rounded w-32 mb-3" />
-                <div className="h-16 bg-void-700/50 rounded-xl" />
+              <div className="h-10 bg-gray-700/50 rounded-xl" />
+              <div className="h-10 bg-gray-700/50 rounded-xl" />
+              <div className="h-10 bg-[#0C115B]/20 rounded-xl" />
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="h-4 bg-gray-700 rounded w-32 mb-3" />
+                <div className="h-16 bg-gray-700/50 rounded-xl" />
               </div>
             </div>
           ) : (
@@ -442,8 +442,8 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
               {/* Compact Config Grid */}
               <div className="flex flex-col gap-3 mb-4">
                 {/* Card Count */}
-                <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <label className="text-xs text-void-400 mb-1 block">Cards</label>
+                <div className="p-3 bg-white rounded-xl border border-gray-200">
+                  <label className="text-sm text-gray-700 font-medium mb-1 block">Cards</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="range"
@@ -451,45 +451,48 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       max="25"
                       value={cardCount}
                       onChange={(e) => setCardCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-void-700 rounded cursor-pointer accent-ember-500"
+                      className="flex-1 h-1.5 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
                     />
-                    <span className="text-white font-medium text-sm w-6">{cardCount}</span>
+                    <span className="text-gray-800 font-medium text-sm w-6">{cardCount}</span>
                   </div>
                 </div>
 
-                {/* Topics Summary */}
-                {concepts.length > 0 && (
-                  <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                    <label className="text-xs text-void-400 mb-1 block">Topics</label>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white text-sm">
-                        {selectedTopics.length === concepts.length ? 'All' : `${selectedTopics.length}/${concepts.length}`}
-                      </span>
-                      <div className="flex gap-1 text-xs">
-                        <button onClick={selectAllTopics} className="text-azure-400 hover:text-azure-300 px-1">All</button>
-                        <button onClick={deselectAllTopics} className="text-void-400 hover:text-void-300 px-1">Clear</button>
+                {/* Topics Summary - Always show */}
+                <div className="p-3 bg-white rounded-xl border border-gray-200">
+                  <label className="text-sm text-gray-700 font-medium mb-1 block">Topics</label>
+                  {concepts.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-800 text-sm">
+                          {selectedTopics.length === concepts.length ? 'All' : `${selectedTopics.length}/${concepts.length}`}
+                        </span>
+                        <div className="flex gap-1 text-xs">
+                          <button onClick={selectAllTopics} className="text-[#0C115B] hover:text-[#0C115B]/70 px-1">All</button>
+                          <button onClick={deselectAllTopics} className="text-gray-500 hover:text-gray-700 px-1">Clear</button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Collapsible Topic Selection */}
-              {concepts.length > 0 && selectedTopics.length !== concepts.length && (
-                <div className="mb-4 p-2 bg-white/[0.02] rounded-xl border border-white/[0.06] max-h-32 overflow-y-auto">
-                  {concepts.map((concept) => (
-                    <label key={concept.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-white/[0.03] cursor-pointer text-xs">
-                      <input
-                        type="checkbox"
-                        checked={selectedTopics.includes(concept.id)}
-                        onChange={() => toggleTopic(concept.id)}
-                        className="w-3 h-3 rounded border-void-600 text-ember-500"
-                      />
-                      <span className="text-white flex-1 truncate">{concept.title}</span>
-                    </label>
-                  ))}
+                      {/* Topic Selection Checkboxes */}
+                      <div className="max-h-40 overflow-y-auto border-t border-gray-100 pt-2">
+                        {concepts.map((concept) => (
+                          <label key={concept.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedTopics.includes(concept.id)}
+                              onChange={() => toggleTopic(concept.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-[#0C115B] accent-[#0C115B] focus:ring-[#0C115B]"
+                            />
+                            <span className="text-gray-700 flex-1">{concept.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-gray-500 text-sm italic">
+                      No key concepts found. Cards will cover the full content.
+                    </p>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Focus Prompt */}
               <input
@@ -497,7 +500,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                 value={focusPrompt}
                 onChange={(e) => setFocusPrompt(e.target.value)}
                 placeholder="Focus area (optional): e.g., practical examples..."
-                className="w-full px-3 py-2 mb-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-void-100 placeholder:text-void-500 focus:outline-none focus:border-ember-500/50 text-sm"
+                className="w-full px-3 py-2 mb-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-sm"
               />
 
               {/* Set Name */}
@@ -506,55 +509,106 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                 value={setName}
                 onChange={(e) => setSetName(e.target.value)}
                 placeholder="Set name (optional): e.g., Chapter 1 Review"
-                className="w-full px-3 py-2 mb-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-void-100 placeholder:text-void-500 focus:outline-none focus:border-ember-500/50 text-sm"
+                className="w-full px-3 py-2 mb-4 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-sm"
               />
 
               {/* Generate Button */}
-              <Button
-                onClick={generateWithConfig}
-                variant="primary"
-                className="w-full"
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin mr-2" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon size={16} className="mr-2" />
-                    Generate {cardCount} Cards
-                  </>
-                )}
-              </Button>
+              <div className="flex justify-center">
+                <Button
+                  onClick={generateWithConfig}
+                  variant="primary"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon size={16} className="mr-2" />
+                      Generate {cardCount} Cards
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {/* Existing Sets */}
               {Object.keys(flashcardSets).length > 0 && (
-                <div className="mt-6 pt-6 border-t border-white/[0.06]">
-                  <h3 className="text-sm font-medium text-void-300 mb-3">
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
                     Existing Flashcard Sets
                   </h3>
                   <div className="space-y-2">
                     {Object.entries(flashcardSets).map(([name, cards]) => (
-                      <button
+                      <div
                         key={name}
-                        onClick={() => {
-                          setFlashcards(cards);
-                          setActiveSetName(name);
-                          setCurrentIndex(0);
-                          setViewMode('study');
-                        }}
-                        className="w-full p-3 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] rounded-xl text-left transition-colors"
+                        className={clsx(
+                          "w-full p-4 bg-white border rounded-xl transition-all shadow-sm flex items-center justify-between",
+                          deleteConfirmId === cards[0]?.id ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50 hover:shadow-md"
+                        )}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-white font-medium text-sm">{name}</p>
-                            <p className="text-xs text-void-500">{cards.length} cards</p>
-                          </div>
-                          <ChevronRight size={18} className="text-void-500" />
+                        <button
+                          onClick={() => {
+                            if (deleteConfirmId !== cards[0]?.id) {
+                              setFlashcards(cards);
+                              setActiveSetName(name);
+                              setCurrentIndex(0);
+                              setViewMode('study');
+                            }
+                          }}
+                          className="flex-1 text-left"
+                          disabled={deleteConfirmId === cards[0]?.id}
+                        >
+                          <p className="text-gray-800 font-semibold text-base">{name}</p>
+                          <p className="text-sm text-gray-500">{cards.length} cards</p>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          {deleteConfirmId === cards[0]?.id ? (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Optimistic delete - remove from UI immediately
+                                  const setToDelete = name;
+                                  setExistingSets(prev => prev.filter(card => card.set_name !== setToDelete));
+                                  setDeleteConfirmId(null);
+                                  // Delete in background
+                                  api.deleteSet(chatId, name).catch(err => {
+                                    console.error('Failed to delete set:', err);
+                                  });
+                                }}
+                                className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmId(null);
+                                }}
+                                className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmId(cards[0]?.id || null);
+                                }}
+                                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                title="Delete set"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <ChevronRight size={18} className="text-gray-400" />
+                            </>
+                          )}
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -583,7 +637,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                     type="text"
                     value={newSetName}
                     onChange={(e) => setNewSetName(e.target.value)}
-                    className="px-2 py-1 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white text-lg font-display font-semibold focus:outline-none focus:border-ember-500/50"
+                    className="px-2 py-1 bg-white/5 border border-gray-200 rounded-lg text-gray-800 text-lg font-display font-semibold focus:outline-none focus:border-[#0C115B]/50"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && handleRenameSet()}
                   />
@@ -597,8 +651,8 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
               ) : (
                 <h2
                   className={clsx(
-                    "font-display font-semibold text-xl text-white",
-                    isEditMode && "cursor-pointer hover:text-ember-300"
+                    "font-display font-semibold text-xl text-gray-800",
+                    isEditMode && "cursor-pointer hover:text-[#0C115B]"
                   )}
                   onClick={() => {
                     if (isEditMode) {
@@ -611,7 +665,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                   {activeSetName}
                 </h2>
               )}
-              <p className="text-sm text-void-500">
+              <p className="text-sm text-gray-500">
                 Card {currentIndex + 1} of {flashcards.length}
               </p>
             </div>
@@ -677,9 +731,9 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 bg-void-800 rounded-full mb-6 overflow-hidden">
+        <div className="h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-ember-500 to-ember-400 transition-all duration-300"
+            className="h-full bg-[#0C115B] transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / flashcards.length) * 100}%` }}
           />
         </div>
@@ -689,8 +743,8 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
         )}
 
         {/* Flashcard */}
-        <div className="flex items-center justify-center py-4">
-          <div className="w-full max-w-lg">
+        <div className="flex items-center justify-center py-6">
+          <div className="w-full max-w-3xl">
             {/* Main Card */}
             <div
               onClick={() => {
@@ -707,19 +761,19 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
             >
               <div
                 className={clsx(
-                  "relative rounded-2xl p-6 min-h-[280px] flex flex-col transition-all duration-300",
-                  "border shadow-xl",
+                  "relative rounded-2xl p-8 min-h-[480px] flex flex-col transition-all duration-300",
+                  "border-2 shadow-xl",
                   showExplanation
-                    ? "bg-gradient-to-br from-azure-500/10 to-azure-600/5 border-azure-500/20"
+                    ? "bg-white border-[#0C115B]/30"
                     : isFlipped
-                      ? "bg-gradient-to-br from-ember-500/10 to-ember-600/5 border-ember-500/20"
-                      : "bg-gradient-to-br from-white/[0.03] to-white/[0.01] border-white/[0.08]"
+                      ? "bg-white border-[#0C115B]/20"
+                      : "bg-white border-gray-200"
                 )}
               >
                 {/* Top row: Label, Difficulty, and Edit Mode Controls */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-void-500 uppercase tracking-wider">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">
                       {showExplanation ? 'Explanation' : (isFlipped ? 'Answer' : 'Question')}
                     </p>
                     <span className={clsx(
@@ -735,7 +789,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       <button
                         onClick={() => moveCard(currentIndex, 'up')}
                         disabled={currentIndex === 0}
-                        className="p-1 text-void-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                         title="Move up"
                       >
                         <ArrowUp size={14} />
@@ -743,14 +797,14 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       <button
                         onClick={() => moveCard(currentIndex, 'down')}
                         disabled={currentIndex === flashcards.length - 1}
-                        className="p-1 text-void-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                         title="Move down"
                       >
                         <ArrowDown size={14} />
                       </button>
                       <button
                         onClick={() => startEditing(currentCard)}
-                        className="p-1 text-void-400 hover:text-ember-400 transition-colors"
+                        className="p-1 text-gray-400 hover:text-[#0C115B] transition-colors"
                         title="Edit card"
                       >
                         <Pencil size={14} />
@@ -767,7 +821,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                           </button>
                           <button
                             onClick={() => setDeleteConfirmId(null)}
-                            className="p-1 text-void-400 hover:text-white transition-colors"
+                            className="p-1 text-gray-400 hover:text-gray-800 transition-colors"
                           >
                             <X size={14} />
                           </button>
@@ -775,7 +829,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       ) : (
                         <button
                           onClick={() => setDeleteConfirmId(currentCard.id)}
-                          className="p-1 text-void-400 hover:text-red-400 transition-colors"
+                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
                           title="Delete card"
                         >
                           <Trash2 size={14} />
@@ -790,7 +844,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                   {showExplanation ? (
                     <div className="text-center space-y-4">
                       {currentCard.explanation && (
-                        <p className="text-sm text-azure-100 leading-relaxed">{currentCard.explanation}</p>
+                        <p className="text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
                       )}
                       {currentCard.timestamp && (
                         <button
@@ -798,7 +852,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                             e.stopPropagation();
                             handleTimestampClick(currentCard.timestamp!);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-azure-500/20 text-azure-400 hover:bg-azure-500/30 transition-colors text-xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors text-xs"
                           title="Jump to this moment in video"
                         >
                           {currentCard.timestamp}
@@ -808,7 +862,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                   ) : (
                     <p className={clsx(
                       "text-center leading-relaxed",
-                      isFlipped ? "text-void-200 text-base" : "text-white text-lg font-medium"
+                      isFlipped ? "text-gray-700 text-lg" : "text-gray-800 text-xl font-medium"
                     )}>
                       {isFlipped ? currentCard.answer : currentCard.question}
                     </p>
@@ -816,7 +870,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                 </div>
 
                 {/* Bottom hint */}
-                <p className="text-xs text-void-600 text-center mt-4">
+                <p className="text-xs text-gray-600 text-center mt-4">
                   {showExplanation
                     ? 'Click to go back to answer'
                     : isFlipped
@@ -828,17 +882,17 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
 
             {/* Hint Section - only on question side */}
             {!isFlipped && !showExplanation && currentCard.hint && (
-              <div className="mt-3">
+              <div className="mt-4">
                 <button
                   onClick={() => setShowHint(!showHint)}
-                  className="flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors mx-auto"
+                  className="flex items-center gap-2 text-sm text-[#0C115B] hover:text-[#0C115B]/70 transition-colors mx-auto font-medium"
                 >
                   <Lightbulb size={16} />
                   {showHint ? 'Hide hint' : 'Show hint'}
                 </button>
                 {showHint && (
-                  <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-sm text-amber-200 text-center">{currentCard.hint}</p>
+                  <div className="mt-3 p-4 rounded-xl bg-[#0C115B]/5 border border-[#0C115B]/20">
+                    <p className="text-sm text-gray-700 text-center leading-relaxed">{currentCard.hint}</p>
                   </div>
                 )}
               </div>
@@ -846,13 +900,13 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
 
             {/* Show Explanation Button - only on answer side */}
             {isFlipped && !showExplanation && (currentCard.explanation || currentCard.timestamp) && (
-              <div className="mt-3">
+              <div className="mt-4">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowExplanation(true);
                   }}
-                  className="flex items-center gap-2 text-sm text-azure-400 hover:text-azure-300 transition-colors mx-auto"
+                  className="flex items-center gap-2 text-sm text-[#0C115B] hover:text-[#0C115B]/70 transition-colors mx-auto font-medium"
                 >
                   Show explanation
                 </button>
@@ -874,7 +928,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
             Previous
           </Button>
 
-          <span className="text-void-500 text-sm px-4">
+          <span className="text-gray-500 text-sm px-4">
             {currentIndex + 1} / {flashcards.length}
           </span>
 
@@ -894,7 +948,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
 
         {/* Keyboard hint */}
         {!isEditMode && (
-          <p className="text-center text-xs text-void-600 pb-4">
+          <p className="text-center text-xs text-gray-600 pb-4">
             <span className="hidden sm:inline">
               Space to flip • Arrow keys to navigate • H for hint • S to shuffle • R to reset
             </span>
@@ -905,67 +959,67 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
         {/* Edit Card Modal */}
         {editingCardId !== null && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-void-900 border border-white/[0.1] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-900 border border-gray-200 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-display font-semibold text-white">Edit Flashcard</h3>
+                <h3 className="text-lg font-display font-semibold text-gray-800">Edit Flashcard</h3>
                 <Button onClick={cancelEdit} variant="ghost" size="sm"><X size={18} /></Button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Question</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Question</label>
                   <textarea
                     value={editFormData.question || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, question: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={3}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Answer</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Answer</label>
                   <textarea
                     value={editFormData.answer || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, answer: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={3}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-void-400 mb-1 block">Hint</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Hint</label>
                     <input
                       type="text"
                       value={editFormData.hint || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, hint: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-void-400 mb-1 block">Timestamp</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
                     <input
                       type="text"
                       value={editFormData.timestamp || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, timestamp: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                       placeholder="00:00"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Explanation</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Explanation</label>
                   <textarea
                     value={editFormData.explanation || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, explanation: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={2}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Difficulty</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Difficulty</label>
                   <select
                     value={editFormData.difficulty || 'medium'}
                     onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                    className="w-full px-3 py-2 bg-void-800 border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     style={{ colorScheme: 'dark' }}
                   >
                     <option value="easy">Easy</option>
@@ -989,69 +1043,69 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
         {/* Create Card Modal */}
         {isCreatingCard && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-void-900 border border-white/[0.1] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-900 border border-gray-200 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-display font-semibold text-white">Create New Flashcard</h3>
+                <h3 className="text-lg font-display font-semibold text-gray-800">Create New Flashcard</h3>
                 <Button onClick={() => setIsCreatingCard(false)} variant="ghost" size="sm"><X size={18} /></Button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Question *</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Question *</label>
                   <textarea
                     value={newCardData.question}
                     onChange={(e) => setNewCardData({ ...newCardData, question: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={3}
                     placeholder="Enter the question..."
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Answer *</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Answer *</label>
                   <textarea
                     value={newCardData.answer}
                     onChange={(e) => setNewCardData({ ...newCardData, answer: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={3}
                     placeholder="Enter the answer..."
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-void-400 mb-1 block">Hint</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Hint</label>
                     <input
                       type="text"
                       value={newCardData.hint}
                       onChange={(e) => setNewCardData({ ...newCardData, hint: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-void-400 mb-1 block">Timestamp</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
                     <input
                       type="text"
                       value={newCardData.timestamp}
                       onChange={(e) => setNewCardData({ ...newCardData, timestamp: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                       placeholder="00:00"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Explanation</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Explanation</label>
                   <textarea
                     value={newCardData.explanation}
                     onChange={(e) => setNewCardData({ ...newCardData, explanation: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white resize-none focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 resize-none focus:outline-none focus:border-[#0C115B]/50"
                     rows={2}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-void-400 mb-1 block">Difficulty</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Difficulty</label>
                   <select
                     value={newCardData.difficulty}
                     onChange={(e) => setNewCardData({ ...newCardData, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                    className="w-full px-3 py-2 bg-void-800 border border-white/[0.1] rounded-lg text-white focus:outline-none focus:border-ember-500/50"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     style={{ colorScheme: 'dark' }}
                   >
                     <option value="easy">Easy</option>
@@ -1075,3 +1129,4 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
     </div>
   );
 }
+

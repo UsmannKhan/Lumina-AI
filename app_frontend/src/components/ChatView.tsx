@@ -4,14 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { jsPDF } from 'jspdf';
 import { Chat, Message, TranscriptSegment } from '@/types';
-import { SendIcon, SparklesIcon, UserIcon, FileTextIcon, MenuIcon } from './Icons';
-import Button from './Button';
+import { cn } from '@/lib/utils';
 import FlashcardsView from './FlashcardsView';
 import QuizView from './QuizView';
 import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
-import clsx from 'clsx';
-import { DownloadIcon, Maximize2, Minimize2, BookOpen, FileText, Layers, HelpCircle, Trophy, Subtitles, Globe, MessageSquare, ChevronDown } from 'lucide-react';
+import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface ChatViewProps {
@@ -152,8 +150,6 @@ export default function ChatView({
 
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    // pdf.setTextColor(120);
-    // pdf.text(`Video ID: ${chat.youtube_id}`, margin, y);
     pdf.setTextColor(0);
     y += 12;
 
@@ -247,96 +243,71 @@ export default function ChatView({
     pdf.save(`${filename}.pdf`);
   };
 
+  const tabButtonClass = (isActive: boolean) => cn(
+    'flex items-center gap-2 px-5 py-2.5 rounded-md text-base font-medium transition-all',
+    isActive
+      ? 'bg-[#0C115B] text-white'
+      : 'text-gray-500 hover:text-gray-700 hover:bg-white/40'
+  );
+
   return (
-    <div className="flex-1 flex flex-col h-screen bg-void-950">
+    <div className="flex-1 flex flex-col h-screen">
       {/* Header */}
-      <header className={clsx(
-        "flex-shrink-0 px-6 py-4 border-b border-white/[0.06] glass-darker",
-        isSidebarCollapsed && "pl-14"
-      )}>
+      <header
+        className={cn(
+          "flex-shrink-0 px-8 py-5",
+          isSidebarCollapsed && "pl-24"
+        )}
+        style={{
+          backdropFilter: 'blur(20px)',
+          background: 'rgba(255, 255, 255, 0.6)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={onToggleSidebar}
-              className="lg:hidden p-2 rounded-lg hover:bg-white/[0.05] text-void-400"
+              className="lg:hidden p-2 rounded-lg hover:bg-white/40 text-gray-500"
             >
-              <MenuIcon size={20} />
+              <Menu size={20} />
             </button>
             <div>
-              <h1 className="font-display font-semibold text-lg text-white truncate max-w-md">
+              <h1 className="font-semibold text-2xl text-gray-800 max-w-md">
                 {chat.session_name}
               </h1>
-              {/* <p className="text-xs text-void-500 mt-0.5">
-                Video ID: {chat.youtube_id}
-              </p> */}
             </div>
           </div>
 
-          {/* Tabs - Desktop: individual buttons, Mobile: dropdown */}
-
           {/* Desktop Tabs */}
-          <div className="hidden md:flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            <button
-              onClick={() => setActiveTab('notes')}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === 'notes'
-                  ? 'bg-ember-500/20 text-ember-300'
-                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-              )}
-            >
+          <div
+            className="hidden md:flex gap-1 p-1 rounded-xl"
+            style={{
+              background: 'rgba(255, 255, 255, 0.5)',
+              border: '1px solid rgba(0, 0, 0, 0.06)',
+            }}
+          >
+            <button onClick={() => setActiveTab('notes')} className={tabButtonClass(activeTab === 'notes')}>
               <FileText size={16} />
               Notes
             </button>
-            <button
-              onClick={() => setActiveTab('flashcards')}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === 'flashcards'
-                  ? 'bg-ember-500/20 text-ember-300'
-                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-              )}
-            >
+            <button onClick={() => setActiveTab('flashcards')} className={tabButtonClass(activeTab === 'flashcards')}>
               <Layers size={16} />
               Flashcards
             </button>
-            <button
-              onClick={() => setActiveTab('quiz')}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === 'quiz'
-                  ? 'bg-ember-500/20 text-ember-300'
-                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-              )}
-            >
+            <button onClick={() => setActiveTab('quiz')} className={tabButtonClass(activeTab === 'quiz')}>
               <Trophy size={16} />
               Quiz
             </button>
-            <button
-              onClick={() => setActiveTab('code')}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === 'code'
-                  ? 'bg-ember-500/20 text-ember-300'
-                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-              )}
-            >
+            <button onClick={() => setActiveTab('code')} className={tabButtonClass(activeTab === 'code')}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16,18 22,12 16,6" />
                 <polyline points="8,6 2,12 8,18" />
               </svg>
               Code
             </button>
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === 'chat'
-                  ? 'bg-ember-500/20 text-ember-300'
-                  : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
-              )}
-            >
-              <SendIcon size={16} />
+            <button onClick={() => setActiveTab('chat')} className={tabButtonClass(activeTab === 'chat')}>
+              <Send size={16} />
               Chat
             </button>
           </div>
@@ -345,78 +316,48 @@ export default function ChatView({
           <div ref={studyDropdownRef} className="md:hidden relative">
             <button
               onClick={() => setIsStudyDropdownOpen(!isStudyDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm font-medium text-void-200"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-700"
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+              }}
             >
               {activeTab === 'notes' && <><FileText size={16} />Notes</>}
               {activeTab === 'flashcards' && <><Layers size={16} />Flashcards</>}
               {activeTab === 'quiz' && <><Trophy size={16} />Quiz</>}
               {activeTab === 'code' && <>Code</>}
-              {activeTab === 'chat' && <><SendIcon size={16} />Chat</>}
-              <svg
-                className={clsx("w-4 h-4 transition-transform ml-1", isStudyDropdownOpen && "rotate-180")}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              {activeTab === 'chat' && <><Send size={16} />Chat</>}
+              <ChevronDown className={cn("w-4 h-4 transition-transform ml-1", isStudyDropdownOpen && "rotate-180")} />
             </button>
 
             {isStudyDropdownOpen && (
               <div
-                className="absolute top-full mt-2 left-0 w-48 rounded-xl border border-white/[0.1] shadow-2xl z-[100] overflow-hidden"
-                style={{ backgroundColor: '#0a0a0c' }}
+                className="absolute top-full mt-2 left-0 w-48 rounded-xl shadow-xl z-[100] overflow-hidden"
+                style={{
+                  background: 'white',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                }}
               >
                 <div className="py-1">
-                  <button
-                    onClick={() => { setActiveTab('notes'); setIsStudyDropdownOpen(false); }}
-                    className={clsx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                      activeTab === 'notes' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                    )}
-                  >
-                    <FileText size={16} />Notes
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('flashcards'); setIsStudyDropdownOpen(false); }}
-                    className={clsx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                      activeTab === 'flashcards' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                    )}
-                  >
-                    <Layers size={16} />Flashcards
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('quiz'); setIsStudyDropdownOpen(false); }}
-                    className={clsx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                      activeTab === 'quiz' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                    )}
-                  >
-                    <Trophy size={16} />Quiz
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('code'); setIsStudyDropdownOpen(false); }}
-                    className={clsx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                      activeTab === 'code' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                    )}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="16,18 22,12 16,6" />
-                      <polyline points="8,6 2,12 8,18" />
-                    </svg>
-                    Code
-                  </button>
-                  <button
-                    onClick={() => { setActiveTab('chat'); setIsStudyDropdownOpen(false); }}
-                    className={clsx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
-                      activeTab === 'chat' ? 'bg-ember-500/20 text-ember-300' : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
-                    )}
-                  >
-                    <SendIcon size={16} />Chat
-                  </button>
+                  {[
+                    { id: 'notes', icon: FileText, label: 'Notes' },
+                    { id: 'flashcards', icon: Layers, label: 'Flashcards' },
+                    { id: 'quiz', icon: Trophy, label: 'Quiz' },
+                    { id: 'code', icon: null, label: 'Code' },
+                    { id: 'chat', icon: Send, label: 'Chat' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id as typeof activeTab); setIsStudyDropdownOpen(false); }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                        activeTab === tab.id ? 'bg-[#0C115B]/10 text-[#0C115B]' : 'text-gray-600 hover:bg-gray-50'
+                      )}
+                    >
+                      {tab.icon && <tab.icon size={16} />}
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -425,25 +366,40 @@ export default function ChatView({
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div
+        className="flex-1 flex overflow-hidden"
+        style={{
+          backgroundImage: 'url(/images/app-background.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
+      >
         {/* Video Panel with Transcript */}
         <div
-          className={clsx(
-            "hidden xl:flex flex-col flex-shrink-0 border-r border-white/[0.06] transition-all duration-300 overflow-hidden",
-            isVideoExpanded ? "w-[600px]" : "w-96"
+          className={cn(
+            "hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden border-r border-black/5",
+            isVideoExpanded ? "w-[60%] max-w-[1000px]" : "w-[45%] max-w-[700px] min-w-[500px]"
           )}
+          style={{
+            background: 'rgba(255, 255, 255, 0.4)',
+            backdropFilter: 'blur(10px)',
+          }}
         >
-          {/* Video Section - hidden when transcript is full */}
+          {/* Video Section - Expands to fill space when transcript is collapsed */}
           {transcriptMode !== 'full' && (
-            <div className="p-4 flex flex-col transition-all duration-300 flex-1 min-h-[200px]">
-              <div className="relative group h-full">
-                <div className="rounded-xl overflow-hidden bg-black shadow-2xl h-full">
+            <div className="p-5 flex-shrink-0 transition-all duration-300">
+              <div className="relative group w-full">
+                <div
+                  className="rounded-2xl overflow-hidden bg-black shadow-lg w-full"
+                  style={{ aspectRatio: '16/9' }}
+                >
                   <iframe
                     src={`https://www.youtube.com/embed/${chat.youtube_id}?enablejsapi=1`}
                     title="YouTube video"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
-                    className="w-full h-full min-h-[150px]"
+                    className="w-full h-full"
                   />
                 </div>
 
@@ -459,50 +415,50 @@ export default function ChatView({
           )}
 
           {/* Transcript Toggle & Content */}
-          <div className={clsx(
-            "border-t border-white/[0.06] flex flex-col min-h-0 overflow-hidden",
-            transcriptMode === 'full' ? "flex-1 border-t-0" : transcriptMode === 'compact' ? "h-[200px] flex-shrink-0" : "flex-shrink-0"
-          )}>
+          <div className={cn(
+            "flex flex-col min-h-0 overflow-hidden transition-all duration-300",
+            transcriptMode === 'full' ? "flex-1" : transcriptMode === 'compact' ? "flex-1" : "h-auto"
+          )} style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}>
             {/* Toggle Bar */}
-            <div className="flex items-center justify-between px-4 py-2 bg-white/[0.02] flex-shrink-0">
-              <div className="flex items-center gap-1">
-                <Subtitles size={14} className="text-void-400 mr-1" />
-                <span className="text-sm text-void-400">Transcript</span>
+            <div
+              className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+              style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+            >
+              <div className="flex items-center gap-3">
+                <Subtitles size={20} className="text-gray-500 mr-1" />
+                <span className="text-xl font-semibold text-gray-700">Transcript</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Auto-scroll toggle - only when not collapsed */}
+              <div className="flex items-center gap-3">
                 {transcriptMode !== 'collapsed' && (
                   <button
                     onClick={() => setIsTranscriptAutoScroll(!isTranscriptAutoScroll)}
-                    className={clsx(
-                      "px-2 py-1 rounded text-xs font-medium transition-all",
+                    className={cn(
+                      "px-4 py-2 rounded text-base font-medium transition-all",
                       isTranscriptAutoScroll
-                        ? "bg-azure-500/20 text-azure-300"
-                        : "bg-white/[0.05] text-void-400 hover:text-void-200"
+                        ? "bg-[#0C115B]/10 text-[#0C115B]"
+                        : "bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200"
                     )}
                   >
                     Auto-scroll
                   </button>
                 )}
 
-                {/* Expand/Compact button */}
                 <button
                   onClick={() => {
                     if (transcriptMode === 'collapsed') setTranscriptMode('compact');
                     else if (transcriptMode === 'compact') setTranscriptMode('full');
                     else setTranscriptMode('compact');
                   }}
-                  className="px-2 py-1 rounded text-xs font-medium bg-white/[0.05] text-void-400 hover:text-void-200 hover:bg-white/[0.08] transition-all"
+                  className="px-4 py-2 rounded text-base font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
                 >
                   {transcriptMode === 'collapsed' ? 'Show' : transcriptMode === 'compact' ? 'Expand' : 'Compact'}
                 </button>
 
-                {/* Hide button - only when not already collapsed */}
                 {transcriptMode !== 'collapsed' && (
                   <button
                     onClick={() => setTranscriptMode('collapsed')}
-                    className="px-2 py-1 rounded text-xs font-medium bg-white/[0.05] text-void-400 hover:text-void-200 hover:bg-white/[0.08] transition-all"
+                    className="px-4 py-2 rounded text-base font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
                   >
                     Hide
                   </button>
@@ -512,7 +468,7 @@ export default function ChatView({
 
             {/* Transcript Content */}
             {transcriptMode !== 'collapsed' && timedTranscript && (
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 <TranscriptView
                   transcript={chat.youtube_transcript}
                   transcriptTimed={timedTranscript}
@@ -521,14 +477,14 @@ export default function ChatView({
                   isAutoScrollControlled={true}
                   autoScrollValue={isTranscriptAutoScroll}
                   onAutoScrollChange={setIsTranscriptAutoScroll}
+                  isExpanded={isVideoExpanded}
                 />
               </div>
             )}
 
-            {/* Plain transcript fallback */}
             {transcriptMode !== 'collapsed' && !timedTranscript && (
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
-                <p className="text-sm text-void-300 leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap font-medium">
                   {chat.youtube_transcript}
                 </p>
               </div>
@@ -536,24 +492,34 @@ export default function ChatView({
           </div>
         </div>
 
-        {/* Content area - z-0 so header dropdown stays on top */}
+        {/* Content area */}
         <div className="flex-1 flex flex-col min-w-0 relative z-0">
           {activeTab === 'notes' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-center justify-between gap-3 mb-6">
+            <div
+              className="flex-1 overflow-y-auto p-6"
+              style={{ background: 'rgba(255, 255, 255, 0.4)' }}
+            >
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between gap-3 mb-4 flex-shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-ember-500/20">
-                      <FileText size={20} className="text-ember-400" />
-                    </div>
-                    <h2 className="font-display font-semibold text-xl text-white">Here's your notes</h2>
+                    <FileText size={28} className="text-[#0C115B]" />
+                    <h2 className="font-bold text-2xl text-gray-800">Your Notes</h2>
                   </div>
-                  <Button onClick={handleExportPDF} variant="ghost" size="sm">
-                    <DownloadIcon size={16} />
+                  <button
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+                  >
+                    <Download size={20} />
                     Export
-                  </Button>
+                  </button>
                 </div>
-                <div className="markdown-content prose prose-invert max-w-none">
+                <div
+                  className="markdown-content max-w-none p-8 rounded-2xl flex-1 overflow-y-auto shadow-sm"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.85)',
+                    border: '1px solid rgba(0, 0, 0, 0.06)',
+                  }}
+                >
                   <ReactMarkdown>{chat.notes}</ReactMarkdown>
                 </div>
               </div>
@@ -574,17 +540,24 @@ export default function ChatView({
 
           {activeTab === 'chat' && (
             <>
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6" style={{ background: 'rgba(255, 255, 255, 0.3)' }}>
                 <div className="max-w-3xl mx-auto space-y-6">
                   {messages.length === 0 && (
-                    <div className="text-center py-16">
-                      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-ember-500/10 to-ember-600/10 border border-ember-500/20 flex items-center justify-center">
-                        <SparklesIcon size={36} className="text-ember-400" />
+                    <div className="text-center py-70">
+                      <div
+                        className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.7)',
+                          border: '1px solid rgba(0, 0, 0, 0.06)',
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.04)',
+                        }}
+                      >
+                        <Sparkles size={36} className="text-[#0C115B]" />
                       </div>
-                      <h3 className="text-xl font-display font-semibold text-white mb-2">
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">
                         Ask anything about this video
                       </h3>
-                      <p className="text-void-400 max-w-md mx-auto">
+                      <p className="text-gray-500 max-w-md mx-auto">
                         I'm ready to answer your questions,
                         provide summaries, or dive deeper into any topic.
                       </p>
@@ -598,7 +571,11 @@ export default function ChatView({
                           <button
                             key={suggestion}
                             onClick={() => setInput(suggestion)}
-                            className="px-4 py-2 rounded-full text-sm text-void-300 bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+                            className="px-4 py-2 rounded-full text-sm text-gray-600 transition-all hover:bg-white/60"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.5)',
+                              border: '1px solid rgba(0, 0, 0, 0.06)',
+                            }}
                           >
                             {suggestion}
                           </button>
@@ -608,33 +585,37 @@ export default function ChatView({
                   )}
 
                   {messages.map((message) => (
-                    <div key={message.id} className="space-y-4 animate-fade-in">
+                    <div key={message.id} className="space-y-4">
                       <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-azure-500/20 flex items-center justify-center">
-                          <UserIcon size={18} className="text-azure-400" />
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                          <User size={18} className="text-blue-600" />
                         </div>
                         <div className="flex-1 pt-2">
-                          <p className="text-void-100">{message.input}</p>
+                          <p className="text-gray-800">{message.input}</p>
                         </div>
                       </div>
 
                       <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-ember-500/20 flex items-center justify-center">
-                          <SparklesIcon size={18} className="text-ember-400" />
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#0C115B]/10 flex items-center justify-center">
+                          <Sparkles size={18} className="text-[#0C115B]" />
                         </div>
-                        <div className="flex-1 pt-2">
-                          <div className="markdown-content">
-                            <ReactMarkdown>{message.output}</ReactMarkdown>
-                          </div>
+                        <div
+                          className="flex-1 pt-2 p-4 rounded-xl prose max-w-none"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.6)',
+                            border: '1px solid rgba(0, 0, 0, 0.04)',
+                          }}
+                        >
+                          <ReactMarkdown>{message.output}</ReactMarkdown>
                         </div>
                       </div>
                     </div>
                   ))}
 
                   {isSending && (
-                    <div className="flex gap-4 animate-fade-in">
-                      <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-ember-500/20 flex items-center justify-center">
-                        <SparklesIcon size={18} className="text-ember-400" />
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#0C115B]/10 flex items-center justify-center">
+                        <Sparkles size={18} className="text-[#0C115B]" />
                       </div>
                       <div className="flex-1 pt-2">
                         <div className="typing-indicator">
@@ -650,9 +631,14 @@ export default function ChatView({
                 </div>
               </div>
 
-              <div className="flex-shrink-0 p-6 border-t border-white/[0.06] glass-darker">
+              <div
+                className="flex-shrink-0 p-6"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+                }}
+              >
                 <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-                  {/* Main input row */}
                   <div className="flex items-end gap-3">
                     <div className="flex-1 relative">
                       <textarea
@@ -660,65 +646,71 @@ export default function ChatView({
                         value={input}
                         onChange={(e) => {
                           setInput(e.target.value);
-                          // Auto-resize
                           e.target.style.height = 'auto';
                           e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         }}
                         onKeyDown={handleKeyDown}
                         placeholder={webSearchEnabled ? 'Ask with web search...' : 'Ask a question about the video...'}
                         rows={1}
-                        className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-4 text-void-100 placeholder:text-void-500 resize-none transition-all focus:outline-none focus:border-ember-500/50 focus:bg-white/[0.05] hover:border-white/[0.15]"
-                        style={{ minHeight: '56px', maxHeight: '200px' }}
+                        className="w-full rounded-2xl px-5 py-4 text-gray-800 placeholder:text-gray-400 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-[#0C115B]/30"
+                        style={{
+                          minHeight: '56px',
+                          maxHeight: '200px',
+                          background: 'rgba(255, 255, 255, 0.8)',
+                          border: '1px solid rgba(0, 0, 0, 0.08)',
+                        }}
                       />
                     </div>
-                    <Button
+                    <button
                       type="submit"
-                      variant="primary"
-                      size="sm"
                       disabled={!input.trim() || isSending}
-                      className="!rounded-xl !p-4 flex-shrink-0"
+                      className="p-4 rounded-xl text-white flex-shrink-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+                      style={{
+                        background: '#0C115B',
+                        boxShadow: '0 4px 12px rgba(12, 17, 91, 0.3)',
+                      }}
                     >
                       {isSending ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
-                        <SendIcon size={20} />
+                        <Send size={20} />
                       )}
-                    </Button>
+                    </button>
                   </div>
 
-                  {/* Options row below input */}
                   <div className="flex items-center gap-3 mt-3 px-1">
-                    {/* Web Search Toggle */}
                     <button
                       type="button"
                       onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                      className={clsx(
+                      className={cn(
                         'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
                         webSearchEnabled
-                          ? 'bg-azure-500/20 text-azure-300'
-                          : 'text-void-400 hover:text-void-200 hover:bg-white/[0.05]'
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                       )}
                     >
                       <Globe size={14} />
                       Web Search
                     </button>
 
-                    {/* Style Selector */}
                     <div ref={styleDropdownRef} className="relative">
                       <button
                         type="button"
                         onClick={() => setIsStyleDropdownOpen(!isStyleDropdownOpen)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-void-400 hover:text-void-200 hover:bg-white/[0.05] transition-all"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
                       >
                         <MessageSquare size={14} />
                         <span className="capitalize">{chatStyle}</span>
-                        <ChevronDown size={12} className={clsx('transition-transform', isStyleDropdownOpen && 'rotate-180')} />
+                        <ChevronDown size={12} className={cn('transition-transform', isStyleDropdownOpen && 'rotate-180')} />
                       </button>
 
                       {isStyleDropdownOpen && (
                         <div
-                          className="absolute bottom-full mb-2 left-0 w-48 rounded-xl border border-white/[0.1] shadow-2xl z-50 overflow-hidden"
-                          style={{ backgroundColor: '#0a0a0c' }}
+                          className="absolute bottom-full mb-2 left-0 w-48 rounded-xl shadow-xl z-50 overflow-hidden"
+                          style={{
+                            background: 'white',
+                            border: '1px solid rgba(0, 0, 0, 0.08)',
+                          }}
                         >
                           <div className="py-1">
                             {(['study', 'conversational', 'concise', 'custom'] as const).map((style) => (
@@ -726,15 +718,15 @@ export default function ChatView({
                                 key={style}
                                 type="button"
                                 onClick={() => handleStyleChange(style)}
-                                className={clsx(
+                                className={cn(
                                   'w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left',
                                   chatStyle === style
-                                    ? 'bg-ember-500/20 text-ember-300'
-                                    : 'text-void-300 hover:bg-white/[0.05] hover:text-white'
+                                    ? 'bg-[#0C115B]/10 text-[#0C115B]'
+                                    : 'text-gray-600 hover:bg-gray-50'
                                 )}
                               >
                                 <span className="capitalize">{style}</span>
-                                {style === 'study' && <span className="text-xs text-void-500 ml-auto">Default</span>}
+                                {style === 'study' && <span className="text-xs text-gray-400 ml-auto">Default</span>}
                               </button>
                             ))}
                           </div>
@@ -743,29 +735,39 @@ export default function ChatView({
                     </div>
                   </div>
 
-                  {/* Custom Instructions Input */}
                   {showCustomInput && (
-                    <div className="mt-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.08]">
-                      <label className="text-sm text-void-400 mb-2 block">Custom Instructions</label>
+                    <div
+                      className="mt-3 p-4 rounded-xl"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                      }}
+                    >
+                      <label className="text-sm text-gray-500 mb-2 block">Custom Instructions</label>
                       <textarea
                         value={customInstructions}
                         onChange={(e) => setCustomInstructions(e.target.value)}
                         placeholder="Enter your custom instructions for how the AI should respond..."
                         rows={3}
-                        className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-void-100 placeholder:text-void-500 resize-none transition-all focus:outline-none focus:border-ember-500/50 text-sm"
+                        className="w-full rounded-xl px-4 py-3 text-gray-800 placeholder:text-gray-400 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-[#0C115B]/30 text-sm"
+                        style={{
+                          background: 'white',
+                          border: '1px solid rgba(0, 0, 0, 0.08)',
+                        }}
                       />
                       <div className="flex justify-end gap-2 mt-3">
                         <button
                           type="button"
                           onClick={() => setShowCustomInput(false)}
-                          className="px-3 py-1.5 text-sm text-void-400 hover:text-void-200 transition-colors"
+                          className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
                           onClick={handleCustomInstructionsSave}
-                          className="px-4 py-1.5 text-sm bg-ember-500 text-white rounded-lg hover:bg-ember-600 transition-colors"
+                          className="px-4 py-1.5 text-sm text-white rounded-lg transition-colors hover:brightness-110"
+                          style={{ background: '#0C115B' }}
                         >
                           Save
                         </button>
@@ -778,6 +780,6 @@ export default function ChatView({
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 }

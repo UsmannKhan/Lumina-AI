@@ -118,3 +118,7 @@ class GradeResponse(BaseModel):
     score: int  # 0-100
     feedback: str
 
+# Manual Notes
+class ManualNotesRequest(BaseModel):
+    content: str
+

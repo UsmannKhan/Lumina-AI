@@ -1,5 +1,5 @@
 from .database import Base
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
 from datetime import datetime
 
 
@@ -90,11 +90,11 @@ class QuizQuestion(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
     question_type = Column(String, nullable=False)  # 'mcq', 'true_false', 'short_answer'
     question_text = Column(Text, nullable=False)
-    options = Column(Text, nullable=True)  # JSON string for MCQ options
+    options = Column(JSON, nullable=True)  # JSON for MCQ options (stored as JSONB in PostgreSQL)
     correct_answer = Column(Text, nullable=False)
     explanation = Column(Text, nullable=True)
     user_answer = Column(Text, nullable=True)
-    is_correct = Column(Integer, nullable=True)  # 0=wrong, 1=correct
+    is_correct = Column(Boolean, nullable=True)  # True=correct, False=wrong
     points = Column(Integer, default=1)
 
 

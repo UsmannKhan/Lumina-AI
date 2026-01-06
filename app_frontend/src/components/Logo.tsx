@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -8,54 +10,37 @@ interface LogoProps {
 
 export default function Logo({ size = 'md' }: LogoProps) {
   const sizes = {
-    sm: { icon: 24, text: 'text-lg' },
-    md: { icon: 32, text: 'text-xl' },
-    lg: { icon: 48, text: 'text-3xl' },
+    sm: { container: 'w-8 h-8', icon: 'w-4 h-4', text: 'text-lg', sub: 'text-[9px]' },
+    md: { container: 'w-10 h-10', icon: 'w-5 h-5', text: 'text-xl', sub: 'text-[10px]' },
+    lg: { container: 'w-14 h-14', icon: 'w-7 h-7', text: 'text-2xl', sub: 'text-xs' },
   };
 
-  const { icon, text } = sizes[size];
+  const { container, icon, text, sub } = sizes[size];
 
   return (
     <div className="flex items-center gap-3">
       <div className="relative">
         {/* Outer glow */}
-        <div className="absolute inset-0 bg-ember-500/30 blur-xl rounded-full" />
-        
+        <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
+
         {/* Icon container */}
-        <div 
-          className="relative bg-gradient-to-br from-ember-400 via-ember-500 to-ember-600 rounded-xl p-2 shadow-lg shadow-ember-500/30"
-          style={{ width: icon + 16, height: icon + 16 }}
+        <div
+          className={cn(
+            'relative rounded-2xl flex items-center justify-center',
+            'bg-gradient-to-br from-primary/80 to-primary shadow-lg shadow-primary/30',
+            container
+          )}
         >
-          {/* Play triangle with brain-like curve */}
-          <svg 
-            width={icon} 
-            height={icon} 
-            viewBox="0 0 32 32" 
-            fill="none"
-            className="relative z-10"
-          >
-            <path
-              d="M8 6.5C8 5.11929 9.54649 4.28565 10.7 5.05538L25.1 14.6554C26.1667 15.3598 26.1667 16.9402 25.1 17.6446L10.7 27.2446C9.54649 28.0144 8 27.1807 8 25.8V6.5Z"
-              fill="white"
-              fillOpacity="0.95"
-            />
-            <path
-              d="M11 10C11 10 14 12 14 16C14 20 11 22 11 22"
-              stroke="white"
-              strokeOpacity="0.4"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <Sparkles className={cn('text-primary-foreground', icon)} />
         </div>
       </div>
-      
+
       <div className="flex flex-col">
-        <span className={`font-display font-bold tracking-tight ${text}`}>
-          <span className="text-white">Lum</span>
-          <span className="gradient-text">ina</span>
+        <span className={cn('font-bold tracking-tight', text)}>
+          <span className="text-foreground">Lum</span>
+          <span className="text-primary">ina</span>
         </span>
-        <span className="text-[10px] tracking-[0.2em] uppercase text-void-400 font-medium -mt-0.5">
+        <span className={cn('tracking-[0.15em] uppercase text-muted-foreground font-medium -mt-0.5', sub)}>
           Video Intelligence
         </span>
       </div>

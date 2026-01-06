@@ -48,7 +48,9 @@ RULES:
   - Context clues: "Related to the aftermath of his father's death."
   - Category hints: "It's a type of sorting algorithm."
   Keep hints concise (under 15 words) but make them genuinely helpful for recalling the answer.
-- Explain why the answer is correct using the transcript and provide the exact timestamp in the video where the answer can be found{topic_instruction}{focus_instruction}
+- Explain why the answer is correct
+- Provide the exact timestamp in the video where the answer or the explanation can be found. The timestamps format is: 00:00
+- Look at the examples in the example format to understand the format and the instructions and also how the explanation should look like{topic_instruction}{focus_instruction}
 
 IMPORTANT: Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
 

@@ -196,6 +196,7 @@ export interface CodingProblem {
   difficulty: 'easy' | 'medium' | 'hard';
   examples: CodeExample[];
   hints: string[];
+  solution?: string;
 }
 
 export interface CodeProblemsResponse {

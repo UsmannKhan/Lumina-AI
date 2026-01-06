@@ -251,7 +251,7 @@ def get_quizzes(chat_id: int, user: user_dependency, db: Session = Depends(get_d
                     "id": q.id,
                     "type": q.question_type,
                     "question": q.question_text,
-                    "options": json.loads(q.options) if q.options else None,
+                    "options": q.options,  # JSON column auto-deserializes to list
                     "correct_answer": q.correct_answer,
                     "explanation": q.explanation,
                     "user_answer": q.user_answer,
@@ -336,7 +336,7 @@ def generate_quiz(
                     quiz_id=quiz.id,
                     question_type='mcq',
                     question_text=q['question'],
-                    options=json.dumps(q['options']),
+                    options=q['options'],  # Pass raw list for JSONB
                     correct_answer=str(q['correct_index']),
                     explanation=q.get('explanation')
                 )
@@ -377,7 +377,7 @@ def generate_quiz(
                     "id": q.id,
                     "type": q.question_type,
                     "question": q.question_text,
-                    "options": json.loads(q.options) if q.options else None,
+                    "options": q.options,  # JSON column auto-deserializes to list
                     "correct_answer": q.correct_answer,
                     "explanation": q.explanation
                 } for q in saved_questions
@@ -415,3 +415,67 @@ def grade_short_answer(request: schemas.GradeRequest, user: user_dependency):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to grade answer: {str(e)}")
+
+
+@router.delete("/{quiz_id}")
+def delete_quiz(
+    quiz_id: int,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Delete a quiz and all its questions"""
+    
+    quiz = db.query(models.Quiz).filter(
+        models.Quiz.id == quiz_id,
+        models.Quiz.user_id == user['id']
+    ).first()
+    
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    # Delete all questions first
+    db.query(models.QuizQuestion).filter(
+        models.QuizQuestion.quiz_id == quiz_id
+    ).delete()
+    
+    # Delete the quiz
+    db.delete(quiz)
+    db.commit()
+    
+    return {"message": f"Quiz '{quiz.set_name}' deleted", "id": quiz_id}
+
+
+class QuizCompleteRequest(BaseModel):
+    score: int
+
+
+@router.put("/{quiz_id}/complete")
+def complete_quiz(
+    quiz_id: int,
+    request: QuizCompleteRequest,
+    user: user_dependency,
+    db: Session = Depends(get_db)
+):
+    """Save the score when a quiz is completed"""
+    
+    quiz = db.query(models.Quiz).filter(
+        models.Quiz.id == quiz_id,
+        models.Quiz.user_id == user['id']
+    ).first()
+    
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    # Update score and mark as completed
+    quiz.score = request.score
+    quiz.completed = 2  # 2 = completed
+    db.commit()
+    
+    return {
+        "message": "Quiz score saved",
+        "quiz_id": quiz_id,
+        "score": request.score,
+        "total_questions": quiz.total_questions
+    }
+
+

@@ -25,6 +25,7 @@ class CodeProblemResponse(BaseModel):
     difficulty: str
     examples: List[dict]
     hints: List[str]
+    solution: Optional[str] = None
 
 class CodeProblemsListResponse(BaseModel):
     is_cs_video: bool
@@ -173,7 +174,8 @@ async def get_code_problems(
                 description=p.description,
                 difficulty=p.difficulty,
                 examples=json.loads(p.examples) if p.examples else [],
-                hints=json.loads(p.hints) if p.hints else []
+                hints=json.loads(p.hints) if p.hints else [],
+                solution=p.solution
             ))
         return CodeProblemsListResponse(is_cs_video=True, problems=result)
     
@@ -255,7 +257,8 @@ async def generate_code_problems(
                 description=problem.description,
                 difficulty=problem.difficulty,
                 examples=p.get('examples', []),
-                hints=p.get('hints', [])
+                hints=p.get('hints', []),
+                solution=p.get('solution', '')
             ))
         
         db.commit()

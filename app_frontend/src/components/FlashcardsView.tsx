@@ -411,7 +411,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
     }, {} as Record<string, Flashcard[]>);
 
     return (
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
         <div className="max-w-2xl mx-auto">
           {/* Centered Header */}
           <h2 className="text-lg font-display font-semibold text-gray-800 text-center mb-4">Generate Flashcards</h2>
@@ -622,7 +622,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
 
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
       <div className="max-w-2xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -651,7 +651,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
               ) : (
                 <h2
                   className={clsx(
-                    "font-display font-semibold text-xl text-gray-800",
+                    "font-display font-semibold text-lg xl:text-xl text-gray-800",
                     isEditMode && "cursor-pointer hover:text-[#0C115B]"
                   )}
                   onClick={() => {
@@ -761,7 +761,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
             >
               <div
                 className={clsx(
-                  "relative rounded-2xl p-8 min-h-[480px] flex flex-col transition-all duration-300",
+                  "relative rounded-xl 2xl:rounded-2xl p-4 2xl:p-8 min-h-[320px] 2xl:min-h-[480px] flex flex-col transition-all duration-300",
                   "border-2 shadow-xl",
                   showExplanation
                     ? "bg-white border-[#0C115B]/30"

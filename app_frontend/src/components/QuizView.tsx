@@ -206,7 +206,7 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
     const totalQuestions = mcqCount + tfCount + shortCount;
 
     return (
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-lg font-display font-semibold text-gray-800 text-center mb-4">Generate Quiz</h2>
 
@@ -460,14 +460,14 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
             percentage >= 70 ? "bg-emerald-500/20 border-2 border-emerald-500/40" : "bg-amber-500/20 border-2 border-amber-500/40"
           )}>
             <span className={clsx(
-              "text-3xl font-display font-bold",
+              "text-xl 2xl:text-3xl font-display font-bold",
               percentage >= 70 ? "text-emerald-400" : "text-amber-400"
             )}>
               {percentage}%
             </span>
           </div>
 
-          <h3 className="text-2xl font-display font-semibold text-gray-800 mb-2">
+          <h3 className="text-lg 2xl:text-2xl font-display font-semibold text-gray-800 mb-2">
             {percentage >= 90 ? "Excellent!" : percentage >= 70 ? "Great job!" : percentage >= 50 ? "Good effort!" : "Keep studying!"}
           </h3>
 
@@ -493,7 +493,7 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
   if (viewMode === 'quiz' && currentQuiz && currentQuestion) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
           <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">

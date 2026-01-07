@@ -244,7 +244,7 @@ export default function ChatView({
   };
 
   const tabButtonClass = (isActive: boolean) => cn(
-    'flex items-center gap-2 px-5 py-2.5 rounded-md text-base font-medium transition-all',
+    'flex items-center gap-1 2xl:gap-2 px-2.5 2xl:px-5 py-1.5 2xl:py-2.5 rounded-md text-xs 2xl:text-base font-medium transition-all',
     isActive
       ? 'bg-[#0C115B] text-white'
       : 'text-gray-500 hover:text-gray-700 hover:bg-white/40'
@@ -255,8 +255,8 @@ export default function ChatView({
       {/* Header */}
       <header
         className={cn(
-          "flex-shrink-0 px-8 py-5",
-          isSidebarCollapsed && "pl-24"
+          "flex-shrink-0 px-3 2xl:px-8 py-2 2xl:py-5",
+          isSidebarCollapsed && "pl-12 2xl:pl-24"
         )}
         style={{
           backdropFilter: 'blur(20px)',
@@ -273,7 +273,7 @@ export default function ChatView({
               <Menu size={20} />
             </button>
             <div>
-              <h1 className="font-semibold text-2xl text-gray-800 max-w-md">
+              <h1 className="font-semibold text-lg 2xl:text-2xl text-gray-800 max-w-md">
                 {chat.session_name}
               </h1>
             </div>
@@ -288,26 +288,26 @@ export default function ChatView({
             }}
           >
             <button onClick={() => setActiveTab('notes')} className={tabButtonClass(activeTab === 'notes')}>
-              <FileText size={16} />
+              <FileText size={14} className="2xl:w-4 2xl:h-4" />
               Notes
             </button>
             <button onClick={() => setActiveTab('flashcards')} className={tabButtonClass(activeTab === 'flashcards')}>
-              <Layers size={16} />
+              <Layers size={14} className="2xl:w-4 2xl:h-4" />
               Flashcards
             </button>
             <button onClick={() => setActiveTab('quiz')} className={tabButtonClass(activeTab === 'quiz')}>
-              <Trophy size={16} />
+              <Trophy size={14} className="2xl:w-4 2xl:h-4" />
               Quiz
             </button>
             <button onClick={() => setActiveTab('code')} className={tabButtonClass(activeTab === 'code')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" className="2xl:w-4 2xl:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16,18 22,12 16,6" />
                 <polyline points="8,6 2,12 8,18" />
               </svg>
               Code
             </button>
             <button onClick={() => setActiveTab('chat')} className={tabButtonClass(activeTab === 'chat')}>
-              <Send size={16} />
+              <Send size={14} className="2xl:w-4 2xl:h-4" />
               Chat
             </button>
           </div>
@@ -379,7 +379,7 @@ export default function ChatView({
         <div
           className={cn(
             "hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden border-r border-black/5",
-            isVideoExpanded ? "w-[60%] max-w-[1000px]" : "w-[45%] max-w-[700px] min-w-[500px]"
+            isVideoExpanded ? "w-[50%] 2xl:w-[55%] max-w-[800px] 2xl:max-w-[1200px]" : "w-[35%] 2xl:w-[45%] max-w-[450px] 2xl:max-w-[700px] min-w-[280px] 2xl:min-w-[500px]"
           )}
           style={{
             background: 'rgba(255, 255, 255, 0.4)',
@@ -388,7 +388,7 @@ export default function ChatView({
         >
           {/* Video Section - Expands to fill space when transcript is collapsed */}
           {transcriptMode !== 'full' && (
-            <div className="p-5 flex-shrink-0 transition-all duration-300">
+            <div className="p-3 2xl:p-5 flex-shrink-0 transition-all duration-300">
               <div className="relative group w-full">
                 <div
                   className="rounded-2xl overflow-hidden bg-black shadow-lg w-full"
@@ -421,20 +421,20 @@ export default function ChatView({
           )} style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}>
             {/* Toggle Bar */}
             <div
-              className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+              className="flex items-center justify-between px-3 2xl:px-4 py-1.5 2xl:py-2 flex-shrink-0"
               style={{ background: 'rgba(255, 255, 255, 0.5)' }}
             >
-              <div className="flex items-center gap-3">
-                <Subtitles size={20} className="text-gray-500 mr-1" />
-                <span className="text-xl font-semibold text-gray-700">Transcript</span>
+              <div className="flex items-center gap-1.5 2xl:gap-2">
+                <Subtitles size={14} className="2xl:w-[18px] 2xl:h-[18px] text-gray-500" />
+                <span className="text-sm 2xl:text-base font-semibold text-gray-700">Transcript</span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 2xl:gap-2">
                 {transcriptMode !== 'collapsed' && (
                   <button
                     onClick={() => setIsTranscriptAutoScroll(!isTranscriptAutoScroll)}
                     className={cn(
-                      "px-4 py-2 rounded text-base font-medium transition-all",
+                      "px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium transition-all",
                       isTranscriptAutoScroll
                         ? "bg-[#0C115B]/10 text-[#0C115B]"
                         : "bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200"
@@ -450,7 +450,7 @@ export default function ChatView({
                     else if (transcriptMode === 'compact') setTranscriptMode('full');
                     else setTranscriptMode('compact');
                   }}
-                  className="px-4 py-2 rounded text-base font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
+                  className="px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
                 >
                   {transcriptMode === 'collapsed' ? 'Show' : transcriptMode === 'compact' ? 'Expand' : 'Compact'}
                 </button>
@@ -458,7 +458,7 @@ export default function ChatView({
                 {transcriptMode !== 'collapsed' && (
                   <button
                     onClick={() => setTranscriptMode('collapsed')}
-                    className="px-4 py-2 rounded text-base font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
+                    className="px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
                   >
                     Hide
                   </button>
@@ -496,25 +496,25 @@ export default function ChatView({
         <div className="flex-1 flex flex-col min-w-0 relative z-0">
           {activeTab === 'notes' && (
             <div
-              className="flex-1 overflow-y-auto p-6"
+              className="flex-1 overflow-y-auto p-3 2xl:p-6"
               style={{ background: 'rgba(255, 255, 255, 0.4)' }}
             >
               <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between gap-3 mb-4 flex-shrink-0">
-                  <div className="flex items-center gap-3">
-                    <FileText size={28} className="text-[#0C115B]" />
-                    <h2 className="font-bold text-2xl text-gray-800">Your Notes</h2>
+                <div className="flex items-center justify-between gap-2 2xl:gap-3 mb-3 2xl:mb-4 flex-shrink-0">
+                  <div className="flex items-center gap-2 2xl:gap-3">
+                    <FileText size={20} className="text-[#0C115B] 2xl:w-7 2xl:h-7" />
+                    <h2 className="font-bold text-lg 2xl:text-2xl text-gray-800">Your Notes</h2>
                   </div>
                   <button
                     onClick={handleExportPDF}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+                    className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
                   >
-                    <Download size={20} />
+                    <Download size={16} className="2xl:w-5 2xl:h-5" />
                     Export
                   </button>
                 </div>
                 <div
-                  className="markdown-content max-w-none p-8 rounded-2xl flex-1 overflow-y-auto shadow-sm"
+                  className="markdown-content max-w-none p-4 2xl:p-8 rounded-xl 2xl:rounded-2xl flex-1 overflow-y-auto shadow-sm"
                   style={{
                     background: 'rgba(255, 255, 255, 0.85)',
                     border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -540,7 +540,7 @@ export default function ChatView({
 
           {activeTab === 'chat' && (
             <>
-              <div className="flex-1 overflow-y-auto p-6" style={{ background: 'rgba(255, 255, 255, 0.3)' }}>
+              <div className="flex-1 overflow-y-auto p-3 2xl:p-6" style={{ background: 'rgba(255, 255, 255, 0.3)' }}>
                 <div className="max-w-3xl mx-auto space-y-6">
                   {messages.length === 0 && (
                     <div className="text-center py-70">
@@ -632,7 +632,7 @@ export default function ChatView({
               </div>
 
               <div
-                className="flex-shrink-0 p-6"
+                className="flex-shrink-0 p-4 xl:p-6"
                 style={{
                   background: 'rgba(255, 255, 255, 0.7)',
                   borderTop: '1px solid rgba(0, 0, 0, 0.06)',

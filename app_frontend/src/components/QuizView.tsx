@@ -44,6 +44,7 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
   const [score, setScore] = useState(0);
   const [isGrading, setIsGrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTopicsExpanded, setIsTopicsExpanded] = useState(false);
 
   useEffect(() => {
     setViewMode('config');
@@ -206,9 +207,9 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
     const totalQuestions = mcqCount + tfCount + shortCount;
 
     return (
-      <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-lg font-display font-semibold text-gray-800 text-center mb-4">Generate Quiz</h2>
+      <div className="flex-1 overflow-y-auto p-4 2xl:p-8">
+        <div className="max-w-xl 2xl:max-w-5xl mx-auto">
+          <h2 className="text-base 2xl:text-xl font-display font-semibold text-gray-800 text-center mb-3 2xl:mb-6">Generate Quiz</h2>
 
           {isLoadingConfig ? (
             <div className="space-y-4 animate-pulse">
@@ -226,52 +227,52 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
           ) : (
             <>
               {/* Question Type Counts */}
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="p-3 bg-white rounded-xl border border-gray-200">
-                  <label className="text-sm text-gray-700 font-medium mb-1 block">Multiple Choice</label>
-                  <div className="flex items-center gap-2">
+              <div className="grid grid-cols-3 gap-2 2xl:gap-4 mb-3 2xl:mb-6">
+                <div className="p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                  <label className="text-xs 2xl:text-base text-gray-700 font-medium mb-1 2xl:mb-2 block">Multiple Choice</label>
+                  <div className="flex items-center gap-2 2xl:gap-3">
                     <input
                       type="range" min="0" max="10" value={mcqCount}
                       onChange={(e) => setMcqCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
+                      className="flex-1 h-1 2xl:h-2 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
                     />
-                    <span className="text-gray-800 font-medium text-sm w-4">{mcqCount}</span>
+                    <span className="text-gray-800 font-medium text-xs 2xl:text-base w-4 2xl:w-6">{mcqCount}</span>
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-gray-200">
-                  <label className="text-sm text-gray-700 font-medium mb-1 block">True or False</label>
-                  <div className="flex items-center gap-2">
+                <div className="p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                  <label className="text-xs 2xl:text-base text-gray-700 font-medium mb-1 2xl:mb-2 block">True or False</label>
+                  <div className="flex items-center gap-2 2xl:gap-3">
                     <input
                       type="range" min="0" max="10" value={tfCount}
                       onChange={(e) => setTfCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
+                      className="flex-1 h-1 2xl:h-2 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
                     />
-                    <span className="text-gray-800 font-medium text-sm w-4">{tfCount}</span>
+                    <span className="text-gray-800 font-medium text-xs 2xl:text-base w-4 2xl:w-6">{tfCount}</span>
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-gray-200">
-                  <label className="text-sm text-gray-700 font-medium mb-1 block">Short Answer</label>
-                  <div className="flex items-center gap-2">
+                <div className="p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                  <label className="text-xs 2xl:text-base text-gray-700 font-medium mb-1 2xl:mb-2 block">Short Answer</label>
+                  <div className="flex items-center gap-2 2xl:gap-3">
                     <input
                       type="range" min="0" max="5" value={shortCount}
                       onChange={(e) => setShortCount(Number(e.target.value))}
-                      className="flex-1 h-1.5 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
+                      className="flex-1 h-1 2xl:h-2 bg-gray-200 rounded cursor-pointer accent-[#0C115B]"
                     />
-                    <span className="text-gray-800 font-medium text-sm w-4">{shortCount}</span>
+                    <span className="text-gray-800 font-medium text-xs 2xl:text-base w-4 2xl:w-6">{shortCount}</span>
                   </div>
                 </div>
               </div>
 
               {/* Difficulty */}
-              <div className="mb-4">
-                <label className="text-sm text-gray-700 font-medium mb-2 block">Difficulty</label>
-                <div className="flex gap-2">
+              <div className="mb-3 2xl:mb-6">
+                <label className="text-xs 2xl:text-base text-gray-700 font-medium mb-1.5 2xl:mb-3 block">Difficulty</label>
+                <div className="flex gap-1.5 2xl:gap-3">
                   {(['easy', 'medium', 'hard', 'mixed'] as const).map((d) => (
                     <button
                       key={d}
                       onClick={() => setDifficulty(d)}
                       className={clsx(
-                        "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
+                        "flex-1 py-1.5 2xl:py-3 rounded-md 2xl:rounded-lg text-xs 2xl:text-base font-medium transition-colors border",
                         difficulty === d
                           ? "bg-[#0C115B] text-white border-[#0C115B]"
                           : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
@@ -283,37 +284,57 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                 </div>
               </div>
 
-              {/* Topics - Always show */}
-              <div className="mb-4 p-3 bg-white rounded-xl border border-gray-200">
-                <label className="text-sm text-gray-700 font-medium mb-1 block">Topics</label>
+              {/* Topics - Collapsible */}
+              <div className="mb-3 2xl:mb-6 p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => concepts.length > 0 && setIsTopicsExpanded(!isTopicsExpanded)}
+                >
+                  <label className="text-xs 2xl:text-base text-gray-700 font-medium cursor-pointer">Topics</label>
+                  <div className="flex items-center gap-2">
+                    {concepts.length > 0 && (
+                      <span className="text-gray-500 text-xs 2xl:text-base">
+                        {selectedTopics.length === concepts.length ? 'All selected' : `${selectedTopics.length}/${concepts.length} selected`}
+                      </span>
+                    )}
+                    {concepts.length > 0 && (
+                      <ChevronRight
+                        size={14}
+                        className={clsx(
+                          "text-gray-400 transition-transform 2xl:w-5 2xl:h-5",
+                          isTopicsExpanded && "rotate-90"
+                        )}
+                      />
+                    )}
+                  </div>
+                </div>
                 {concepts.length > 0 ? (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-800 text-sm">
-                        {selectedTopics.length === concepts.length ? 'All topics' : `${selectedTopics.length}/${concepts.length} selected`}
-                      </span>
-                      <div className="flex gap-2 text-xs">
-                        <button onClick={selectAllTopics} className="text-[#0C115B] hover:text-[#0C115B]/70">All</button>
-                        <button onClick={deselectAllTopics} className="text-gray-500 hover:text-gray-700">Clear</button>
-                      </div>
-                    </div>
-                    {/* Topic Selection Checkboxes */}
-                    <div className="max-h-40 overflow-y-auto border-t border-gray-100 pt-2">
-                      {concepts.map((concept) => (
-                        <label key={concept.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedTopics.includes(concept.id)}
-                            onChange={() => toggleTopic(concept.id)}
-                            className="w-4 h-4 rounded border-gray-300 text-[#0C115B] accent-[#0C115B] focus:ring-[#0C115B]"
-                          />
-                          <span className="text-gray-700 flex-1">{concept.title}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {isTopicsExpanded && (
+                      <>
+                        <div className="flex items-center justify-end gap-1.5 2xl:gap-3 mt-1.5 2xl:mt-3 mb-1 2xl:mb-2 text-[10px] 2xl:text-sm">
+                          <button onClick={(e) => { e.stopPropagation(); selectAllTopics(); }} className="text-[#0C115B] hover:text-[#0C115B]/70">All</button>
+                          <button onClick={(e) => { e.stopPropagation(); deselectAllTopics(); }} className="text-gray-500 hover:text-gray-700">Clear</button>
+                        </div>
+                        {/* Topic Selection Checkboxes */}
+                        <div className="max-h-28 2xl:max-h-48 overflow-y-auto border-t border-gray-100 pt-1.5 2xl:pt-3">
+                          {concepts.map((concept) => (
+                            <label key={concept.id} className="flex items-center gap-1.5 2xl:gap-3 p-1 2xl:p-2 rounded hover:bg-gray-50 cursor-pointer text-xs 2xl:text-base">
+                              <input
+                                type="checkbox"
+                                checked={selectedTopics.includes(concept.id)}
+                                onChange={() => toggleTopic(concept.id)}
+                                className="w-3.5 h-3.5 2xl:w-5 2xl:h-5 rounded border-gray-300 text-[#0C115B] accent-[#0C115B] focus:ring-[#0C115B]"
+                              />
+                              <span className="text-gray-700 flex-1">{concept.title}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </>
                 ) : (
-                  <p className="text-gray-500 text-sm italic">
+                  <p className="text-gray-500 text-xs 2xl:text-base italic mt-1 2xl:mt-2">
                     No key concepts found. Quiz will cover the full content.
                   </p>
                 )}
@@ -325,14 +346,14 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                 value={focusPrompt}
                 onChange={(e) => setFocusPrompt(e.target.value)}
                 placeholder="Focus area (optional)"
-                className="w-full px-3 py-2 mb-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-sm"
+                className="w-full px-2.5 2xl:px-3 py-1.5 2xl:py-2 mb-2 2xl:mb-3 bg-white border border-gray-200 rounded-lg 2xl:rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-xs 2xl:text-sm"
               />
               <input
                 type="text"
                 value={setName}
                 onChange={(e) => setSetName(e.target.value)}
                 placeholder="Quiz name (optional)"
-                className="w-full px-3 py-2 mb-4 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-sm"
+                className="w-full px-2.5 2xl:px-3 py-1.5 2xl:py-2 mb-3 2xl:mb-4 bg-white border border-gray-200 rounded-lg 2xl:rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0C115B]/50 text-xs 2xl:text-sm"
               />
 
               {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
@@ -354,14 +375,14 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
 
               {/* Existing Quizzes */}
               {existingQuizzes.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Previous Quizzes</h3>
-                  <div className="space-y-2">
+                <div className="mt-4 2xl:mt-6 pt-4 2xl:pt-6 border-t border-gray-200">
+                  <h3 className="text-xs 2xl:text-sm font-medium text-gray-700 mb-2 2xl:mb-3">Previous Quizzes</h3>
+                  <div className="space-y-1.5 2xl:space-y-2">
                     {existingQuizzes.map((quiz) => (
                       <div
                         key={quiz.id}
                         className={clsx(
-                          "w-full p-4 bg-white border rounded-xl transition-all shadow-sm flex items-center justify-between",
+                          "w-full p-3 2xl:p-4 bg-white border rounded-lg 2xl:rounded-xl transition-all shadow-sm flex items-center justify-between",
                           deleteConfirmId === quiz.id ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50 hover:shadow-md"
                         )}
                       >
@@ -370,8 +391,8 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                           className="flex-1 text-left"
                           disabled={deleteConfirmId === quiz.id}
                         >
-                          <p className="text-gray-800 font-semibold text-base">{quiz.set_name}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <p className="text-gray-800 font-semibold text-sm 2xl:text-base">{quiz.set_name}</p>
+                          <div className="flex items-center gap-1.5 2xl:gap-2 text-xs 2xl:text-sm text-gray-500">
                             <span>{quiz.total_questions} questions</span>
                             <span>•</span>
                             <span className="capitalize">{quiz.difficulty}</span>
@@ -493,27 +514,27 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
   if (viewMode === 'quiz' && currentQuiz && currentQuestion) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 2xl:p-6">
-          <div className="max-w-2xl mx-auto">
+        <div className="flex-1 overflow-y-auto p-4 2xl:p-8">
+          <div className="max-w-xl 2xl:max-w-5xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between mb-3 2xl:mb-6">
+              <div className="flex items-center gap-2 2xl:gap-4">
                 <Button onClick={() => setViewMode('config')} variant="ghost" size="sm">
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={16} className="2xl:w-5 2xl:h-5" />
                 </Button>
                 <div>
-                  <h2 className="font-display font-semibold text-lg text-gray-800">{currentQuiz.set_name}</h2>
-                  <p className="text-sm text-gray-500">Question {currentIndex + 1} of {currentQuiz.questions.length}</p>
+                  <h2 className="font-display font-semibold text-base 2xl:text-xl text-gray-800">{currentQuiz.set_name}</h2>
+                  <p className="text-xs 2xl:text-base text-gray-500">Question {currentIndex + 1} of {currentQuiz.questions.length}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-500">Score</p>
-                <p className="text-xl font-display font-bold text-gray-800">{score}/{currentIndex + (isSubmitted ? 1 : 0)}</p>
+                <p className="text-xs 2xl:text-base text-gray-500">Score</p>
+                <p className="text-lg 2xl:text-2xl font-display font-bold text-gray-800">{score}/{currentIndex + (isSubmitted ? 1 : 0)}</p>
               </div>
             </div>
 
             {/* Progress */}
-            <div className="h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
+            <div className="h-1.5 2xl:h-3 bg-gray-200 rounded-full mb-4 2xl:mb-8 overflow-hidden">
               <div
                 className="h-full bg-[#0C115B] transition-all duration-300"
                 style={{ width: `${((currentIndex + 1) / currentQuiz.questions.length) * 100}%` }}
@@ -521,9 +542,9 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
             </div>
 
             {/* Question type badge */}
-            <div className="mb-4">
+            <div className="mb-3 2xl:mb-6">
               <span className={clsx(
-                "px-3 py-1 rounded-full text-xs font-medium",
+                "px-2.5 2xl:px-4 py-0.5 2xl:py-1.5 rounded-full text-[10px] 2xl:text-sm font-medium",
                 currentQuestion.type === 'mcq' && "bg-violet-500/20 text-violet-400",
                 currentQuestion.type === 'true_false' && "bg-amber-500/20 text-amber-400",
                 currentQuestion.type === 'short_answer' && "bg-emerald-500/20 text-emerald-400"
@@ -535,18 +556,18 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
             </div>
 
             {/* Question */}
-            <h3 className="text-lg text-gray-800 font-medium mb-6">{currentQuestion.question}</h3>
+            <h3 className="text-base 2xl:text-xl text-gray-800 font-medium mb-4 2xl:mb-8">{currentQuestion.question}</h3>
 
             {/* MCQ Options */}
             {currentQuestion.type === 'mcq' && currentQuestion.options && (
-              <div className="space-y-3">
+              <div className="space-y-2 2xl:space-y-3">
                 {currentQuestion.options.map((option, i) => (
                   <button
                     key={i}
                     onClick={() => !isSubmitted && setSelectedAnswer(i)}
                     disabled={isSubmitted}
                     className={clsx(
-                      "w-full p-4 rounded-xl border text-left transition-all shadow-sm",
+                      "w-full p-3 2xl:p-4 rounded-lg 2xl:rounded-xl border text-left transition-all shadow-sm text-sm 2xl:text-base",
                       !isSubmitted && selectedAnswer === i && "bg-[#0C115B] border-[#0C115B] text-white",
                       !isSubmitted && selectedAnswer !== i && "bg-white border-gray-200 text-gray-800 hover:bg-gray-50 hover:border-[#0C115B]/30",
                       isSubmitted && i === parseInt(currentQuestion.correct_answer) && "bg-emerald-50 border-emerald-500 text-emerald-700",
@@ -554,7 +575,7 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                       isSubmitted && selectedAnswer !== i && i !== parseInt(currentQuestion.correct_answer) && "bg-white border-gray-200 text-gray-500"
                     )}
                   >
-                    <span className="font-medium mr-3">{String.fromCharCode(65 + i)}.</span>
+                    <span className="font-medium mr-2 2xl:mr-3">{String.fromCharCode(65 + i)}.</span>
                     {option}
                   </button>
                 ))}
@@ -563,14 +584,14 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
 
             {/* True/False */}
             {currentQuestion.type === 'true_false' && (
-              <div className="flex gap-4">
+              <div className="flex gap-3 2xl:gap-4">
                 {[true, false].map((value) => (
                   <button
                     key={String(value)}
                     onClick={() => !isSubmitted && setSelectedAnswer(value)}
                     disabled={isSubmitted}
                     className={clsx(
-                      "flex-1 p-6 rounded-xl border text-center font-semibold transition-all shadow-sm",
+                      "flex-1 p-4 2xl:p-6 rounded-lg 2xl:rounded-xl border text-center font-semibold transition-all shadow-sm text-sm 2xl:text-base",
                       !isSubmitted && selectedAnswer === value && "bg-[#0C115B] border-[#0C115B] text-white",
                       !isSubmitted && selectedAnswer !== value && "bg-white border-gray-200 text-gray-800 hover:bg-gray-50 hover:border-[#0C115B]/30",
                       isSubmitted && String(value).toLowerCase() === currentQuestion.correct_answer && "bg-emerald-50 border-emerald-500 text-emerald-700",
@@ -591,18 +612,18 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
                   onChange={(e) => setShortAnswer(e.target.value)}
                   disabled={isSubmitted}
                   placeholder="Type your answer here..."
-                  rows={4}
+                  rows={3}
                   className={clsx(
-                    "w-full p-4 rounded-xl border bg-white text-gray-800 placeholder:text-gray-400 focus:outline-none resize-none",
+                    "w-full p-3 2xl:p-4 rounded-lg 2xl:rounded-xl border bg-white text-gray-800 placeholder:text-gray-400 focus:outline-none resize-none text-sm 2xl:text-base",
                     !isSubmitted && "border-gray-200 focus:border-[#0C115B]/50",
                     isSubmitted && isCorrect && "border-emerald-500 bg-emerald-50",
                     isSubmitted && !isCorrect && "border-amber-500 bg-amber-50"
                   )}
                 />
                 {isSubmitted && (
-                  <div className="mt-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
-                    <p className="text-xs text-gray-500 uppercase mb-1">Ideal Answer</p>
-                    <p className="text-sm text-gray-700">{currentQuestion.correct_answer}</p>
+                  <div className="mt-2 2xl:mt-3 p-2.5 2xl:p-3 rounded-lg bg-gray-50 border border-gray-200">
+                    <p className="text-[10px] 2xl:text-xs text-gray-500 uppercase mb-0.5 2xl:mb-1">Ideal Answer</p>
+                    <p className="text-xs 2xl:text-sm text-gray-700">{currentQuestion.correct_answer}</p>
                   </div>
                 )}
               </div>
@@ -611,24 +632,24 @@ export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
             {/* Feedback */}
             {isSubmitted && (
               <div className={clsx(
-                "mt-6 p-4 rounded-xl border",
+                "mt-4 2xl:mt-6 p-3 2xl:p-4 rounded-lg 2xl:rounded-xl border",
                 isCorrect ? "bg-emerald-50 border-emerald-500" : "bg-red-50 border-red-500"
               )}>
-                <div className="flex items-center gap-2 mb-2">
-                  {isCorrect ? <CheckCircle size={20} className="text-emerald-600" /> : <XCircle size={20} className="text-red-600" />}
-                  <span className={clsx("font-semibold", isCorrect ? "text-emerald-700" : "text-red-700")}>
+                <div className="flex items-center gap-1.5 2xl:gap-2 mb-1 2xl:mb-2">
+                  {isCorrect ? <CheckCircle size={16} className="2xl:w-5 2xl:h-5 text-emerald-600" /> : <XCircle size={16} className="2xl:w-5 2xl:h-5 text-red-600" />}
+                  <span className={clsx("font-semibold text-sm 2xl:text-base", isCorrect ? "text-emerald-700" : "text-red-700")}>
                     {isCorrect ? "Correct!" : "Incorrect"}
                   </span>
                 </div>
-                {feedback && <p className="text-gray-700 text-sm">{feedback}</p>}
+                {feedback && <p className="text-gray-700 text-xs 2xl:text-sm">{feedback}</p>}
               </div>
             )}
           </div>
         </div>
 
         {/* Action bar */}
-        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
-          <div className="max-w-2xl mx-auto flex justify-end">
+        <div className="flex-shrink-0 p-3 2xl:p-4 border-t border-gray-200 bg-white">
+          <div className="max-w-xl 2xl:max-w-4xl mx-auto flex justify-end">
             {!isSubmitted ? (
               <Button
                 onClick={checkAnswer}

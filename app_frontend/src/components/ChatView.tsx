@@ -379,7 +379,7 @@ export default function ChatView({
         <div
           className={cn(
             "hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden border-r border-black/5",
-            isVideoExpanded ? "w-[50%] 2xl:w-[55%] max-w-[800px] 2xl:max-w-[1200px]" : "w-[35%] 2xl:w-[45%] max-w-[450px] 2xl:max-w-[700px] min-w-[280px] 2xl:min-w-[500px]"
+            isVideoExpanded ? "w-[50%] 2xl:w-[60%] max-w-[800px] 2xl:max-w-none" : "w-[35%] 2xl:w-[50%] max-w-[450px] 2xl:max-w-[900px] min-w-[280px] 2xl:min-w-[550px]"
           )}
           style={{
             background: 'rgba(255, 255, 255, 0.4)',
@@ -540,29 +540,29 @@ export default function ChatView({
 
           {activeTab === 'chat' && (
             <>
-              <div className="flex-1 overflow-y-auto p-3 2xl:p-6" style={{ background: 'rgba(255, 255, 255, 0.3)' }}>
-                <div className="max-w-3xl mx-auto space-y-6">
+              <div className="flex-1 overflow-y-auto p-3 2xl:p-8" style={{ background: 'rgba(255, 255, 255, 0.3)' }}>
+                <div className="max-w-xl 2xl:max-w-5xl mx-auto space-y-6">
                   {messages.length === 0 && (
-                    <div className="text-center py-70">
+                    <div className="text-center py-8 2xl:pt-80 2xl:pb-8 flex flex-col items-center justify-center min-h-[200px]">
                       <div
-                        className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+                        className="w-14 h-14 2xl:w-20 2xl:h-20 mx-auto mb-4 2xl:mb-6 rounded-xl 2xl:rounded-2xl flex items-center justify-center"
                         style={{
                           background: 'rgba(255, 255, 255, 0.7)',
                           border: '1px solid rgba(0, 0, 0, 0.06)',
                           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.04)',
                         }}
                       >
-                        <Sparkles size={36} className="text-[#0C115B]" />
+                        <Sparkles size={24} className="2xl:w-9 2xl:h-9 text-[#0C115B]" />
                       </div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      <h3 className="text-base 2xl:text-xl font-semibold text-gray-800 mb-1 2xl:mb-2">
                         Ask anything about this video
                       </h3>
-                      <p className="text-gray-500 max-w-md mx-auto">
+                      <p className="text-sm 2xl:text-base text-gray-500 max-w-sm 2xl:max-w-md mx-auto">
                         I'm ready to answer your questions,
                         provide summaries, or dive deeper into any topic.
                       </p>
 
-                      <div className="mt-8 flex flex-wrap justify-center gap-2">
+                      <div className="mt-4 2xl:mt-8 flex flex-wrap justify-center gap-1.5 2xl:gap-2">
                         {[
                           'What are the main takeaways?',
                           'Summarize in 3 bullet points',
@@ -571,7 +571,7 @@ export default function ChatView({
                           <button
                             key={suggestion}
                             onClick={() => setInput(suggestion)}
-                            className="px-4 py-2 rounded-full text-sm text-gray-600 transition-all hover:bg-white/60"
+                            className="px-3 2xl:px-4 py-1.5 2xl:py-2 rounded-full text-xs 2xl:text-sm text-gray-600 transition-all hover:bg-white/60"
                             style={{
                               background: 'rgba(255, 255, 255, 0.5)',
                               border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -638,7 +638,7 @@ export default function ChatView({
                   borderTop: '1px solid rgba(0, 0, 0, 0.06)',
                 }}
               >
-                <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+                <form onSubmit={handleSubmit} className="max-w-xl 2xl:max-w-5xl mx-auto">
                   <div className="flex items-end gap-3">
                     <div className="flex-1 relative">
                       <textarea

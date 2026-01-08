@@ -203,22 +203,22 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
     // Problem list view
     if (viewMode === 'list') {
         return (
-            <div className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-xl mx-auto">
-                    <h2 className="text-lg font-display font-semibold text-gray-800 text-center mb-6">
+            <div className="flex-1 overflow-y-auto p-6 2xl:p-8">
+                <div className="max-w-xl 2xl:max-w-5xl mx-auto">
+                    <h2 className="text-lg 2xl:text-xl font-display font-semibold text-gray-800 text-center mb-6 2xl:mb-8">
                         Code Practice
                     </h2>
 
                     {problems.length === 0 ? (
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/70 flex items-center justify-center">
-                                <Code2 size={32} className="text-gray-500" />
+                        <div className="text-center py-8 2xl:py-12">
+                            <div className="w-16 h-16 2xl:w-20 2xl:h-20 mx-auto mb-4 2xl:mb-6 rounded-2xl bg-white/70 flex items-center justify-center">
+                                <Code2 size={32} className="2xl:w-10 2xl:h-10 text-gray-500" />
                             </div>
-                            <p className="text-gray-400 mb-6">
+                            <p className="text-gray-400 mb-6 2xl:mb-8 2xl:text-lg">
                                 Generate coding problems based on this video's content
                             </p>
 
-                            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+                            {error && <p className="text-red-400 text-sm 2xl:text-base mb-4">{error}</p>}
 
                             <Button
                                 onClick={generateProblems}
@@ -233,41 +233,43 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
                             </Button>
                         </div>
                     ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-3 2xl:space-y-5 max-w-4xl mx-auto">
                             {problems.map((problem) => (
                                 <button
                                     key={problem.id}
                                     onClick={() => openProblem(problem)}
-                                    className="w-full p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-[#0C115B]/30 transition-all text-left group shadow-sm hover:shadow-md"
+                                    className="w-full p-4 2xl:p-8 bg-white rounded-xl 2xl:rounded-2xl border border-gray-200 hover:bg-gray-50 hover:border-[#0C115B]/30 transition-all text-left group shadow-sm hover:shadow-md"
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h3 className="font-medium text-gray-800 group-hover:text-[#0C115B] transition-colors">
+                                    <div className="flex items-center justify-between mb-2 2xl:mb-4">
+                                        <h3 className="font-medium text-gray-800 group-hover:text-[#0C115B] transition-colors 2xl:text-xl">
                                             {problem.title}
                                         </h3>
                                         <span className={clsx(
-                                            'text-xs px-2 py-1 rounded-full border capitalize',
+                                            'text-xs 2xl:text-sm px-2 2xl:px-3 py-1 2xl:py-1.5 rounded-full border capitalize',
                                             difficultyColors[problem.difficulty]
                                         )}>
                                             {problem.difficulty}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-gray-400 line-clamp-2">
-                                        {problem.description.substring(0, 150)}...
+                                    <p className="text-sm 2xl:text-base text-gray-400 line-clamp-2 2xl:line-clamp-4">
+                                        {problem.description.length > 350
+                                            ? `${problem.description.substring(0, 350)}...`
+                                            : problem.description}
                                     </p>
-                                    <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                                    <div className="flex items-center gap-2 mt-3 2xl:mt-6 text-xs 2xl:text-sm text-gray-500">
                                         <span>{problem.examples.length} examples</span>
                                         <span>•</span>
                                         <span>{problem.hints.length} hints</span>
-                                        <ChevronRight size={14} className="ml-auto text-gray-500 group-hover:text-[#0C115B] transition-colors" />
+                                        <ChevronRight size={14} className="2xl:w-5 2xl:h-5 ml-auto text-gray-500 group-hover:text-[#0C115B] transition-colors" />
                                     </div>
                                 </button>
                             ))}
 
-                            <div className="pt-4 border-t border-gray-200 mt-6">
+                            <div className="pt-4 2xl:pt-6 border-t border-gray-200 mt-6 2xl:mt-8 flex justify-center">
                                 <button
                                     onClick={generateProblems}
                                     disabled={isGenerating}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-[#0C115B] border border-[#0C115B] rounded-xl hover:bg-[#0C115B]/90 transition-colors disabled:opacity-50"
+                                    className="flex items-center justify-center gap-2 px-6 2xl:px-8 py-2.5 2xl:py-3 text-sm 2xl:text-base font-medium text-white bg-[#0C115B] border border-[#0C115B] rounded-xl hover:bg-[#0C115B]/90 transition-colors disabled:opacity-50"
                                 >
                                     {isGenerating ? (
                                         <><Loader2 size={16} className="animate-spin" />Regenerating...</>

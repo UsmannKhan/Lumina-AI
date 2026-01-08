@@ -9,7 +9,7 @@ import FlashcardsView from './FlashcardsView';
 import QuizView from './QuizView';
 import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
-import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu } from 'lucide-react';
+import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface ChatViewProps {
@@ -273,7 +273,7 @@ export default function ChatView({
               <Menu size={20} />
             </button>
             <div>
-              <h1 className="font-semibold text-lg 2xl:text-2xl text-gray-800 max-w-md">
+              <h1 className="font-semibold text-lg 2xl:text-2xl text-gray-800 max-w-md 2xl:max-w-2xl">
                 {chat.session_name}
               </h1>
             </div>
@@ -300,10 +300,7 @@ export default function ChatView({
               Quiz
             </button>
             <button onClick={() => setActiveTab('code')} className={tabButtonClass(activeTab === 'code')}>
-              <svg width="14" height="14" className="2xl:w-4 2xl:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16,18 22,12 16,6" />
-                <polyline points="8,6 2,12 8,18" />
-              </svg>
+              <Code2 size={14} className="2xl:w-4 2xl:h-4" />
               Code
             </button>
             <button onClick={() => setActiveTab('chat')} className={tabButtonClass(activeTab === 'chat')}>

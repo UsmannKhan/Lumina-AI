@@ -46,12 +46,16 @@ NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensiv
 """
 
 
-TITLE_PROMPT = """Generate a short, descriptive title (4-6 words max) for these notes. 
-Return ONLY the title, nothing else.
-
-Notes:
-{notes}
-"""
+def get_video_title(video_url: str) -> str:
+    """Get video title using YouTube oEmbed API (free, no API key needed)"""
+    try:
+        oembed_url = f"https://www.youtube.com/oembed?url={video_url}&format=json"
+        response = requests.get(oembed_url, timeout=5)
+        if response.status_code == 200:
+            return response.json().get("title", "Untitled Video")
+    except Exception as e:
+        print(f"Failed to get video title via oEmbed: {e}")
+    return "Untitled Video"
 
 
 def parse_key_concepts(notes: str) -> list:
@@ -225,12 +229,8 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
     )
     notes = response.text
     
-    # Generate title
-    response2 = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=TITLE_PROMPT.format(notes=notes),
-    )
-    session_name = response2.text.strip()
+    # Get video title using YouTube oEmbed (fast, no LLM needed)
+    session_name = get_video_title(chat.youtube_link)
 
     new_chat = models.Chat(
         youtube_id=video_id,

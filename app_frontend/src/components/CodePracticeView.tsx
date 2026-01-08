@@ -265,7 +265,7 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
                                 </button>
                             ))}
 
-                            <div className="pt-4 2xl:pt-6 border-t border-gray-200 mt-6 2xl:mt-8 flex justify-center">
+                            <div className="pt-3 2xl:pt-6 border-t border-gray-200 mt-4 2xl:mt-8 flex justify-center">
                                 <button
                                     onClick={generateProblems}
                                     disabled={isGenerating}

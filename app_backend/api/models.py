@@ -25,6 +25,7 @@ class Chat(Base):
     session_name = Column(String, nullable=False)
     chat_style = Column(String, default="study")  # study, conversational, concise, custom
     custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
+    manual_notes = Column(Text, nullable=True)  # User's own notes
 
 
 class Message(Base):

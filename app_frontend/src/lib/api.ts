@@ -245,6 +245,14 @@ class ApiClient {
     });
   }
 
+  // Manual Notes
+  async updateManualNotes(chatId: number, content: string): Promise<{ message: string; chat_id: number; manual_notes: string }> {
+    return this.request<{ message: string; chat_id: number; manual_notes: string }>(`/chats/${chatId}/manual-notes`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+  }
+
   async reorderFlashcards(cardIds: number[]): Promise<FlashcardsResponse> {
     return this.request<FlashcardsResponse>('/flashcards/reorder', {
       method: 'PUT',

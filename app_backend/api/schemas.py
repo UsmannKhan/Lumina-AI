@@ -19,6 +19,7 @@ class ChatOut(BaseModel):
     user_id: int
     chat_style: Optional[str] = "study"
     custom_instructions: Optional[str] = None
+    manual_notes: Optional[str] = None  # User's own notes
 
     class Config:
         orm_mode = True

@@ -21,6 +21,7 @@ export interface Chat {
   user_id: number;
   chat_style?: string;  // study, conversational, concise, custom
   custom_instructions?: string;
+  manual_notes?: string;  // User's own notes
 }
 
 export interface Message {

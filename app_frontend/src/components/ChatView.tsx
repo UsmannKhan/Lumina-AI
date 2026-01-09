@@ -9,7 +9,8 @@ import FlashcardsView from './FlashcardsView';
 import QuizView from './QuizView';
 import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
-import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2 } from 'lucide-react';
+import ManualNotesEditor from './ManualNotesEditor';
+import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2, PenLine, Bot } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface ChatViewProps {
@@ -40,6 +41,7 @@ export default function ChatView({
   const [isStyleDropdownOpen, setIsStyleDropdownOpen] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(chat.custom_instructions || '');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [notesSubTab, setNotesSubTab] = useState<'ai' | 'manual'>('ai');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const studyDropdownRef = useRef<HTMLDivElement>(null);
@@ -493,32 +495,87 @@ export default function ChatView({
         <div className="flex-1 flex flex-col min-w-0 relative z-0">
           {activeTab === 'notes' && (
             <div
-              className="flex-1 overflow-y-auto p-3 2xl:p-6"
+              className="flex-1 flex flex-col overflow-hidden"
               style={{ background: 'rgba(255, 255, 255, 0.4)' }}
             >
-              <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between gap-2 2xl:gap-3 mb-3 2xl:mb-4 flex-shrink-0">
-                  <div className="flex items-center gap-2 2xl:gap-3">
-                    <FileText size={20} className="text-[#0C115B] 2xl:w-7 2xl:h-7" />
-                    <h2 className="font-bold text-lg 2xl:text-2xl text-gray-800">Your Notes</h2>
+              {/* Notes Header with Sub-tabs */}
+              <div className="flex items-center justify-between gap-2 2xl:gap-3 p-3 2xl:p-6 pb-0 2xl:pb-0 flex-shrink-0">
+                <div className="flex items-center gap-2 2xl:gap-3">
+                  <FileText size={20} className="text-[#0C115B] 2xl:w-7 2xl:h-7" />
+                  <h2 className="font-bold text-lg 2xl:text-2xl text-gray-800">Notes</h2>
+                </div>
+
+                {/* Right side: Sub-tabs + Export */}
+                <div className="flex items-center gap-2 2xl:gap-3">
+                  {/* Sub-tabs */}
+                  <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.05)' }}>
+                    <button
+                      onClick={() => setNotesSubTab('ai')}
+                      className={cn(
+                        'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
+                        notesSubTab === 'ai'
+                          ? 'bg-white text-[#0C115B] shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      )}
+                    >
+                      <Bot size={14} className="2xl:w-4 2xl:h-4" />
+                      AI Generated
+                    </button>
+                    <button
+                      onClick={() => setNotesSubTab('manual')}
+                      className={cn(
+                        'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
+                        notesSubTab === 'manual'
+                          ? 'bg-white text-[#0C115B] shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      )}
+                    >
+                      <PenLine size={14} className="2xl:w-4 2xl:h-4" />
+                      My Notes
+                    </button>
                   </div>
-                  <button
-                    onClick={handleExportPDF}
-                    className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+
+                  {notesSubTab === 'ai' && (
+                    <button
+                      onClick={handleExportPDF}
+                      className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+                    >
+                      <Download size={16} className="2xl:w-5 2xl:h-5" />
+                      Export
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes Content */}
+              <div className="flex-1 overflow-hidden p-3 2xl:p-6 pt-3 2xl:pt-4">
+                {notesSubTab === 'ai' ? (
+                  <div
+                    className="markdown-content max-w-none p-4 2xl:p-8 rounded-xl 2xl:rounded-2xl h-full overflow-y-auto shadow-sm"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.85)',
+                      border: '1px solid rgba(0, 0, 0, 0.06)',
+                    }}
                   >
-                    <Download size={16} className="2xl:w-5 2xl:h-5" />
-                    Export
-                  </button>
-                </div>
-                <div
-                  className="markdown-content max-w-none p-4 2xl:p-8 rounded-xl 2xl:rounded-2xl flex-1 overflow-y-auto shadow-sm"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    border: '1px solid rgba(0, 0, 0, 0.06)',
-                  }}
-                >
-                  <ReactMarkdown>{chat.notes}</ReactMarkdown>
-                </div>
+                    <ReactMarkdown>{chat.notes}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-xl 2xl:rounded-2xl h-full overflow-hidden shadow-sm"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.85)',
+                      border: '1px solid rgba(0, 0, 0, 0.06)',
+                    }}
+                  >
+                    <ManualNotesEditor
+                      chatId={chat.id}
+                      initialContent={chat.manual_notes || ''}
+                      onSave={async (content) => {
+                        await api.updateManualNotes(chat.id, content);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -629,14 +686,14 @@ export default function ChatView({
               </div>
 
               <div
-                className="flex-shrink-0 p-4 xl:p-6"
+                className="flex-shrink-0 p-3 xl:p-4 2xl:p-6"
                 style={{
                   background: 'rgba(255, 255, 255, 0.7)',
                   borderTop: '1px solid rgba(0, 0, 0, 0.06)',
                 }}
               >
                 <form onSubmit={handleSubmit} className="max-w-xl 2xl:max-w-5xl mx-auto">
-                  <div className="flex items-end gap-3">
+                  <div className="flex items-end gap-2 2xl:gap-3">
                     <div className="flex-1 relative">
                       <textarea
                         ref={inputRef}
@@ -649,9 +706,9 @@ export default function ChatView({
                         onKeyDown={handleKeyDown}
                         placeholder={webSearchEnabled ? 'Ask with web search...' : 'Ask a question about the video...'}
                         rows={1}
-                        className="w-full rounded-2xl px-5 py-4 text-gray-800 placeholder:text-gray-400 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-[#0C115B]/30"
+                        className="w-full rounded-xl 2xl:rounded-2xl px-3 py-2.5 2xl:px-5 2xl:py-4 text-sm 2xl:text-base text-gray-800 placeholder:text-gray-400 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-[#0C115B]/30"
                         style={{
-                          minHeight: '56px',
+                          minHeight: '44px',
                           maxHeight: '200px',
                           background: 'rgba(255, 255, 255, 0.8)',
                           border: '1px solid rgba(0, 0, 0, 0.08)',
@@ -661,32 +718,32 @@ export default function ChatView({
                     <button
                       type="submit"
                       disabled={!input.trim() || isSending}
-                      className="p-4 rounded-xl text-white flex-shrink-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+                      className="p-2.5 2xl:p-4 rounded-lg 2xl:rounded-xl text-white flex-shrink-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
                       style={{
                         background: '#0C115B',
                         boxShadow: '0 4px 12px rgba(12, 17, 91, 0.3)',
                       }}
                     >
                       {isSending ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <div className="w-4 h-4 2xl:w-5 2xl:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
-                        <Send size={20} />
+                        <Send size={16} className="2xl:w-5 2xl:h-5" />
                       )}
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 mt-3 px-1">
+                  <div className="flex items-center gap-2 2xl:gap-3 mt-2 2xl:mt-3 px-1">
                     <button
                       type="button"
                       onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                        'flex items-center gap-1.5 2xl:gap-2 px-2 2xl:px-3 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium transition-all',
                         webSearchEnabled
                           ? 'bg-blue-100 text-blue-600'
                           : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                       )}
                     >
-                      <Globe size={14} />
+                      <Globe size={12} className="2xl:w-3.5 2xl:h-3.5" />
                       Web Search
                     </button>
 
@@ -694,36 +751,36 @@ export default function ChatView({
                       <button
                         type="button"
                         onClick={() => setIsStyleDropdownOpen(!isStyleDropdownOpen)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
+                        className="flex items-center gap-1.5 2xl:gap-2 px-2 2xl:px-3 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
                       >
-                        <MessageSquare size={14} />
+                        <MessageSquare size={12} className="2xl:w-3.5 2xl:h-3.5" />
                         <span className="capitalize">{chatStyle}</span>
-                        <ChevronDown size={12} className={cn('transition-transform', isStyleDropdownOpen && 'rotate-180')} />
+                        <ChevronDown size={10} className={cn('2xl:w-3 2xl:h-3 transition-transform', isStyleDropdownOpen && 'rotate-180')} />
                       </button>
 
                       {isStyleDropdownOpen && (
                         <div
-                          className="absolute bottom-full mb-2 left-0 w-48 rounded-xl shadow-xl z-50 overflow-hidden"
+                          className="absolute bottom-full mb-2 left-0 w-40 2xl:w-48 rounded-lg 2xl:rounded-xl shadow-xl z-50 overflow-hidden"
                           style={{
                             background: 'white',
                             border: '1px solid rgba(0, 0, 0, 0.08)',
                           }}
                         >
-                          <div className="py-1">
+                          <div className="py-0.5 2xl:py-1">
                             {(['study', 'conversational', 'concise', 'custom'] as const).map((style) => (
                               <button
                                 key={style}
                                 type="button"
                                 onClick={() => handleStyleChange(style)}
                                 className={cn(
-                                  'w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left',
+                                  'w-full flex items-center gap-2 2xl:gap-3 px-3 2xl:px-4 py-1.5 2xl:py-2.5 text-xs 2xl:text-sm transition-colors text-left',
                                   chatStyle === style
                                     ? 'bg-[#0C115B]/10 text-[#0C115B]'
                                     : 'text-gray-600 hover:bg-gray-50'
                                 )}
                               >
                                 <span className="capitalize">{style}</span>
-                                {style === 'study' && <span className="text-xs text-gray-400 ml-auto">Default</span>}
+                                {style === 'study' && <span className="text-[10px] 2xl:text-xs text-gray-400 ml-auto">Default</span>}
                               </button>
                             ))}
                           </div>

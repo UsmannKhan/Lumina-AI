@@ -393,3 +393,28 @@ def update_chat_style(chat_id: int, request: schemas.ChatStyleUpdate, user: user
         "custom_instructions": chat.custom_instructions
     }
 
+
+@router.put("/{chat_id}/manual-notes")
+def update_manual_notes(chat_id: int, request: schemas.ManualNotesRequest, user: user_dependency, db: Session = Depends(get_db)):
+    """Update the user's manual notes for a chat."""
+    # Verify ownership
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user['id']
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    # Update manual notes
+    chat.manual_notes = request.content
+    db.commit()
+    
+    return {
+        "message": "Manual notes saved",
+        "chat_id": chat_id,
+        "manual_notes": chat.manual_notes
+    }

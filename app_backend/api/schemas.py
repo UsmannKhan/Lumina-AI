@@ -7,19 +7,24 @@ class VideoRequest(BaseModel):
 
 class CreateChat(BaseModel):
     youtube_link: str
+    space_id: Optional[int] = None  # Optional: assign to a space on creation
 
 class ChatOut(BaseModel):
     id: int
     session_name: str
-    youtube_id: str
-    youtube_transcript: str
-    youtube_transcript_timed: Optional[str] = None
+    source_type: str = "youtube"
+    source_id: Optional[str] = None
+    source_url: Optional[str] = None
+    source_content: str
+    timed_content: Optional[str] = None
     prompt: str
     notes: str
     user_id: int
+    space_id: Optional[int] = None
     chat_style: Optional[str] = "study"
     custom_instructions: Optional[str] = None
-    manual_notes: Optional[str] = None  # User's own notes
+    manual_notes: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

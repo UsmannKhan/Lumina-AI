@@ -13,15 +13,45 @@ export interface TranscriptSegment {
 export interface Chat {
   id: number;
   session_name: string;
-  youtube_id: string;
-  youtube_transcript: string;
-  youtube_transcript_timed?: string;  // JSON string of TranscriptSegment[]
+  source_type: string;  // 'youtube', 'pdf', 'text'
+  source_id?: string | null;  // YouTube ID, or null for pdf/text
+  source_url?: string | null;  // YouTube URL, PDF storage URL, or null
+  source_content: string;  // Transcript, PDF text, or pasted text
+  timed_content?: string;  // JSON string of TranscriptSegment[] (YouTube only)
   prompt: string;
   notes: string;
   user_id: number;
+  space_id?: number | null;
   chat_style?: string;  // study, conversational, concise, custom
   custom_instructions?: string;
   manual_notes?: string;  // User's own notes
+  created_at?: string;
+}
+
+// ============== Spaces ==============
+
+export interface Space {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  chat_count: number;
+}
+
+export interface SpaceWithChats {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  chats: ChatBrief[];
+}
+
+export interface ChatBrief {
+  id: number;
+  session_name: string;
+  source_type: string;
+  source_id?: string | null;
+  created_at?: string;
 }
 
 export interface Message {

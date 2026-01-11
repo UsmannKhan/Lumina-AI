@@ -180,7 +180,7 @@ async def get_code_problems(
         return CodeProblemsListResponse(is_cs_video=True, problems=result)
     
     # No problems yet - check if CS video
-    transcript = chat.youtube_transcript or ""
+    transcript = chat.source_content or ""
     if not transcript:
         return CodeProblemsListResponse(is_cs_video=False, problems=[])
     
@@ -215,9 +215,9 @@ async def generate_code_problems(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     
-    transcript = chat.youtube_transcript or ""
+    transcript = chat.source_content or ""
     if not transcript:
-        raise HTTPException(status_code=400, detail="No transcript available")
+        raise HTTPException(status_code=400, detail="No content available")
     
     # Generate problems using AI
     try:

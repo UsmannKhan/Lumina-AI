@@ -47,10 +47,13 @@ export default function ChatView({
   const studyDropdownRef = useRef<HTMLDivElement>(null);
   const styleDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Parse timed transcript if available
-  const timedTranscript: TranscriptSegment[] | undefined = chat.youtube_transcript_timed
-    ? JSON.parse(chat.youtube_transcript_timed)
+  // Parse timed transcript if available (only for YouTube)
+  const timedTranscript: TranscriptSegment[] | undefined = chat.timed_content
+    ? JSON.parse(chat.timed_content)
     : undefined;
+  
+  // Check if this is a YouTube source
+  const isYouTube = chat.source_type === 'youtube';
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -374,7 +377,7 @@ export default function ChatView({
           backgroundAttachment: 'fixed',
         }}
       >
-        {/* Video Panel with Transcript */}
+        {/* Video/PDF Panel with Transcript */}
         <div
           className={cn(
             "hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden border-r border-black/5",
@@ -385,8 +388,36 @@ export default function ChatView({
             backdropFilter: 'blur(10px)',
           }}
         >
-          {/* Video Section - Expands to fill space when transcript is collapsed */}
-          {transcriptMode !== 'full' && (
+          {/* PDF Viewer - Full height for PDF sources */}
+          {!isYouTube && chat.source_type === 'pdf' && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between px-3 2xl:px-4 py-2 2xl:py-3 flex-shrink-0 border-b border-black/5">
+                <div className="flex items-center gap-2">
+                  <FileText size={16} className="text-[#0C115B]" />
+                  <span className="text-sm font-semibold text-gray-700 truncate max-w-[200px]">
+                    {chat.session_name}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsVideoExpanded(!isVideoExpanded)}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                  title={isVideoExpanded ? "Collapse" : "Expand"}
+                >
+                  {isVideoExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                </button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <iframe
+                  src={api.getPdfUrl(chat.id)}
+                  className="w-full h-full border-0"
+                  title="PDF Viewer"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Video Section - Only for YouTube sources */}
+          {isYouTube && transcriptMode !== 'full' && chat.source_id && (
             <div className="p-3 2xl:p-5 flex-shrink-0 transition-all duration-300">
               <div className="relative group w-full">
                 <div
@@ -394,7 +425,7 @@ export default function ChatView({
                   style={{ aspectRatio: '16/9' }}
                 >
                   <iframe
-                    src={`https://www.youtube.com/embed/${chat.youtube_id}?enablejsapi=1`}
+                    src={`https://www.youtube.com/embed/${chat.source_id}?enablejsapi=1`}
                     title="YouTube video"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -413,7 +444,8 @@ export default function ChatView({
             </div>
           )}
 
-          {/* Transcript Toggle & Content */}
+          {/* Transcript Toggle & Content - Only for YouTube sources */}
+          {isYouTube && (
           <div className={cn(
             "flex flex-col min-h-0 overflow-hidden transition-all duration-300",
             transcriptMode === 'full' ? "flex-1" : transcriptMode === 'compact' ? "flex-1" : "h-auto"
@@ -469,9 +501,9 @@ export default function ChatView({
             {transcriptMode !== 'collapsed' && timedTranscript && (
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <TranscriptView
-                  transcript={chat.youtube_transcript}
+                  transcript={chat.source_content}
                   transcriptTimed={timedTranscript}
-                  youtubeId={chat.youtube_id}
+                  youtubeId={chat.source_id || ''}
                   hideHeader={true}
                   isAutoScrollControlled={true}
                   autoScrollValue={isTranscriptAutoScroll}
@@ -484,11 +516,12 @@ export default function ChatView({
             {transcriptMode !== 'collapsed' && !timedTranscript && (
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap font-medium">
-                  {chat.youtube_transcript}
+                  {chat.source_content}
                 </p>
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Content area */}

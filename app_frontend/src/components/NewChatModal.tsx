@@ -1,25 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { X, Youtube, Sparkles, FileText, Brain, MessageCircle, Lightbulb } from 'lucide-react';
+import { X, Youtube, Sparkles, FileText, Brain, MessageCircle, Lightbulb, Folder, Upload, File } from 'lucide-react';
 import Button from './Button';
 import Input from './Input';
+import { Space } from '@/types';
 
 interface NewChatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (youtubeLink: string) => Promise<void>;
+  onSubmitYoutube: (youtubeLink: string, spaceId?: number) => Promise<void>;
+  onSubmitPdf: (file: File, spaceId?: number) => Promise<void>;
+  spaces: Space[];
+  activeSpaceId: number | null;
 }
 
-export default function NewChatModal({ isOpen, onClose, onSubmit }: NewChatModalProps) {
+type TabType = 'youtube' | 'pdf';
+
+export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, spaces, activeSpaceId }: NewChatModalProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('youtube');
   const [youtubeLink, setYoutubeLink] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<number | undefined>(activeSpaceId ?? undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleYoutubeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -30,7 +41,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmit }: NewChatModal
 
     setIsLoading(true);
     try {
-      await onSubmit(youtubeLink);
+      await onSubmitYoutube(youtubeLink, selectedSpaceId);
       setYoutubeLink('');
       onClose();
     } catch (err) {
@@ -39,6 +50,76 @@ export default function NewChatModal({ isOpen, onClose, onSubmit }: NewChatModal
       setIsLoading(false);
     }
   };
+
+  const handlePdfSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!selectedFile) {
+      setError('Please select a PDF file');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await onSubmitPdf(selectedFile, selectedSpaceId);
+      setSelectedFile(null);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze PDF');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        setError('Only PDF files are allowed');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File too large. Maximum size is 10MB');
+        return;
+      }
+      setSelectedFile(file);
+      setError('');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        setError('Only PDF files are allowed');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File too large. Maximum size is 10MB');
+        return;
+      }
+      setSelectedFile(file);
+      setError('');
+    }
+  };
+
+  const loadingMessage = activeTab === 'youtube' 
+    ? 'Extracting transcript...' 
+    : 'Extracting text from PDF...';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -69,63 +150,247 @@ export default function NewChatModal({ isOpen, onClose, onSubmit }: NewChatModal
                   New Analysis
                 </h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Paste a YouTube link to get started
+                  Add content to analyze
                 </p>
               </div>
             </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('youtube'); setError(''); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
+                  activeTab === 'youtube'
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
+                )}
+              >
+                <Youtube className="w-4 h-4" />
+                YouTube
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('pdf'); setError(''); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
+                  activeTab === 'pdf'
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
+                )}
+              >
+                <FileText className="w-4 h-4" />
+                PDF
+              </button>
+            </div>
           </div>
 
-          {/* Body */}
-          <form onSubmit={handleSubmit} className="px-6 pb-6">
-            <Input
-              placeholder="https://youtube.com/watch?v=..."
-              value={youtubeLink}
-              onChange={(e) => setYoutubeLink(e.target.value)}
-              error={error}
-              icon={<Youtube className="w-5 h-5" />}
-              autoFocus
-            />
+          {/* Body - YouTube Tab */}
+          {activeTab === 'youtube' && (
+            <form onSubmit={handleYoutubeSubmit} className="px-6 pb-6">
+              <Input
+                placeholder="https://youtube.com/watch?v=..."
+                value={youtubeLink}
+                onChange={(e) => setYoutubeLink(e.target.value)}
+                error={error}
+                icon={<Youtube className="w-5 h-5" />}
+                autoFocus
+              />
 
-            {/* Features preview */}
-            <div className="mt-6 p-4 rounded-2xl glass">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                What you'll get
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { icon: FileText, label: 'Full Transcript' },
-                  { icon: Brain, label: 'AI Analysis' },
-                  { icon: MessageCircle, label: 'Q&A Chat' },
-                  { icon: Lightbulb, label: 'Key Insights' },
-                ].map((feature) => (
-                  <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
-                    <feature.icon className="w-4 h-4 text-primary" />
-                    <span>{feature.label}</span>
+              {/* Space selector */}
+              {spaces.length > 0 && (
+                <div className="mt-4">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Add to Space (optional)
+                  </label>
+                  <div className="relative">
+                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      value={selectedSpaceId ?? ''}
+                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
+                    >
+                      <option value="">No space</option>
+                      {spaces.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
 
-            {/* Actions */}
-            <div className="mt-6 flex gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onClose}
-                className="flex-1"
+              {/* Features preview */}
+              <div className="mt-6 p-4 rounded-2xl glass">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                  What you'll get
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: FileText, label: 'Full Transcript' },
+                    { icon: Brain, label: 'AI Analysis' },
+                    { icon: MessageCircle, label: 'Q&A Chat' },
+                    { icon: Lightbulb, label: 'Key Insights' },
+                  ].map((feature) => (
+                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
+                      <feature.icon className="w-4 h-4 text-primary" />
+                      <span>{feature.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isLoading}
+                  className="flex-1"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze Video'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Body - PDF Tab */}
+          {activeTab === 'pdf' && (
+            <form onSubmit={handlePdfSubmit} className="px-6 pb-6">
+              {/* File Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all",
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : selectedFile
+                    ? "border-green-400 bg-green-50"
+                    : "border-gray-300 hover:border-primary/50 hover:bg-white/30"
+                )}
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isLoading}
-                className="flex-1"
-              >
-                {isLoading ? 'Analyzing...' : 'Analyze Video'}
-              </Button>
-            </div>
-          </form>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                
+                {selectedFile ? (
+                  <div className="flex flex-col items-center">
+                    <File className="w-12 h-12 text-green-500 mb-3" />
+                    <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFile(null);
+                      }}
+                      className="mt-2 text-xs text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <Upload className="w-12 h-12 text-gray-400 mb-3" />
+                    <p className="text-sm font-medium text-foreground">
+                      Drop your PDF here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Max file size: 10MB
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <p className="mt-2 text-sm text-red-500">{error}</p>
+              )}
+
+              {/* Space selector */}
+              {spaces.length > 0 && (
+                <div className="mt-4">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Add to Space (optional)
+                  </label>
+                  <div className="relative">
+                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      value={selectedSpaceId ?? ''}
+                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
+                    >
+                      <option value="">No space</option>
+                      {spaces.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Features preview */}
+              <div className="mt-6 p-4 rounded-2xl glass">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                  What you'll get
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: FileText, label: 'Full Text Extract' },
+                    { icon: Brain, label: 'AI Analysis' },
+                    { icon: MessageCircle, label: 'Q&A Chat' },
+                    { icon: Lightbulb, label: 'Key Insights' },
+                  ].map((feature) => (
+                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
+                      <feature.icon className="w-4 h-4 text-primary" />
+                      <span>{feature.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isLoading}
+                  disabled={!selectedFile}
+                  className="flex-1"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze PDF'}
+                </Button>
+              </div>
+            </form>
+          )}
 
           {/* Loading state overlay */}
           {isLoading && (
@@ -136,7 +401,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmit }: NewChatModal
                   <Sparkles className="w-6 h-6 text-primary animate-pulse-soft" />
                 </div>
               </div>
-              <p className="mt-4 text-foreground font-medium">Extracting transcript...</p>
+              <p className="mt-4 text-foreground font-medium">{loadingMessage}</p>
               <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
             </div>
           )}

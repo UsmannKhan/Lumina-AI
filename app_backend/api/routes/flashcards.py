@@ -119,7 +119,7 @@ def generate_and_save_flashcards(
 ) -> List[models.Flashcard]:
     """Generate flashcards using AI and save to database"""
     
-    timed_transcript = chat.youtube_transcript_timed[:15000] if chat.youtube_transcript_timed else chat.youtube_transcript[:15000]
+    timed_transcript = chat.timed_content[:15000] if chat.timed_content else chat.source_content[:15000]
     
     response = client.models.generate_content(
         model="gemini-2.5-flash",

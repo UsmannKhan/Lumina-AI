@@ -1,5 +1,6 @@
-from typing import List
-from fastapi import HTTPException, Depends
+from typing import List, Optional
+from fastapi import HTTPException, Depends, UploadFile, File, Form
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session 
 from starlette import status
 from .. import models
@@ -11,6 +12,16 @@ from ..gemini_client import client
 import requests
 import json
 import os
+import fitz  # PyMuPDF
+import uuid
+from supabase import create_client, Client
+
+# Supabase Storage client
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Use service key for storage operations
+PDF_BUCKET = "pdfs"  # Bucket name in Supabase Storage
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 router = APIRouter(
     prefix='/chats',
@@ -233,12 +244,15 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
     session_name = get_video_title(chat.youtube_link)
 
     new_chat = models.Chat(
-        youtube_id=video_id,
-        youtube_transcript=plain_text,
-        youtube_transcript_timed=json.dumps(timed_segments) if timed_segments else None,
+        source_type="youtube",
+        source_id=video_id,
+        source_url=chat.youtube_link,
+        source_content=plain_text,
+        timed_content=json.dumps(timed_segments) if timed_segments else None,
         prompt=NOTES_PROMPT.format(timed_transcript="[transcript]"),
         notes=notes,
         user_id=user['id'],
+        space_id=chat.space_id,  # Optional space assignment
         session_name=session_name
     )
     db.add(new_chat)
@@ -280,6 +294,229 @@ def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = D
     }
 
 
+# PDF Notes Prompt
+PDF_NOTES_PROMPT = """Analyze this PDF document and provide comprehensive, detailed, and well-structured notes.
+
+## Instructions:
+1. Start with a **Summary** of the document
+2. List the **Key Takeaways** (main points the reader should remember)
+3. Provide **Detailed Notes** organized by topic/section
+4. Include any **Action Items** or practical tips mentioned
+5. Note any **Important Definitions** or terminology
+6. End with a **Key Concepts** section listing all the main topics/concepts covered
+
+## Formatting:
+- Use clear headings
+- Keep it scannable and easy to read
+- Highlight important terms or concepts in bold
+- Do not start your response with opening phrases like "Here are comprehensive notes:"
+- For the Key Concepts section, use this EXACT format for each concept:
+  - **[Concept Title]**: Brief one-line description
+
+## Document Content:
+{content}
+"""
+
+
+def extract_pdf_text(pdf_bytes: bytes) -> str:
+    """Extract text from PDF using PyMuPDF"""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    text_parts = []
+    
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        text = page.get_text()
+        if text.strip():
+            text_parts.append(f"--- Page {page_num + 1} ---\n{text}")
+    
+    doc.close()
+    return "\n\n".join(text_parts)
+
+
+@router.post("/pdf")
+def create_chat_from_pdf(
+    user: user_dependency,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    space_id: Optional[str] = Form(None),
+):
+    """Create a new chat from an uploaded PDF file"""
+    
+    # Convert space_id from string to int if provided
+    space_id_int: Optional[int] = None
+    if space_id and space_id.strip():
+        try:
+            space_id_int = int(space_id)
+        except ValueError:
+            pass
+    
+    # Validate file type
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are allowed"
+        )
+    
+    # Read file content
+    pdf_bytes = file.file.read()
+    
+    # Check file size (max 2MB)
+    if len(pdf_bytes) > 2 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 2MB"
+        )
+    
+    # Extract text from PDF
+    try:
+        pdf_text = extract_pdf_text(pdf_bytes)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to extract text from PDF: {str(e)}"
+        )
+    
+    if not pdf_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No text could be extracted from the PDF. It may be a scanned document or image-based PDF."
+        )
+    
+    # Truncate if too long for the AI (keep first ~100k chars)
+    content_for_ai = pdf_text[:100000]
+    
+    # Generate notes using AI
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
+        )
+        notes = response.text
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate notes: {str(e)}"
+        )
+    
+    # Use filename as session name (without .pdf extension)
+    session_name = file.filename.rsplit('.', 1)[0] if file.filename else "Untitled PDF"
+    
+    # Generate unique ID for this PDF (like YouTube video ID)
+    pdf_id = str(uuid.uuid4())
+    
+    # Upload PDF to Supabase Storage
+    if not supabase:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Storage not configured"
+        )
+    
+    try:
+        storage_path = f"{user['id']}/{pdf_id}.pdf"
+        supabase.storage.from_(PDF_BUCKET).upload(
+            path=storage_path,
+            file=pdf_bytes,
+            file_options={"content-type": "application/pdf"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload PDF: {str(e)}"
+        )
+    
+    # Create chat record
+    new_chat = models.Chat(
+        source_type="pdf",
+        source_id=pdf_id,  # Store the UUID for retrieval (like YouTube video ID)
+        source_url=None,
+        source_content=pdf_text,
+        timed_content=None,
+        prompt=PDF_NOTES_PROMPT.format(content="[document content]"),
+        notes=notes,
+        user_id=user['id'],
+        space_id=space_id_int,
+        session_name=session_name
+    )
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+    
+    # Parse and save key concepts from notes
+    concepts_data = parse_key_concepts(notes)
+    saved_concepts = []
+    for concept in concepts_data:
+        key_concept = models.KeyConcept(
+            chat_id=new_chat.id,
+            title=concept['title'],
+            description=concept['description'],
+            start_time=None,  # No timestamps for PDFs
+            end_time=None,
+            importance=concept['importance']
+        )
+        db.add(key_concept)
+        saved_concepts.append({
+            'title': concept['title'],
+            'description': concept['description']
+        })
+    
+    if concepts_data:
+        db.commit()
+    
+    return {
+        "id": new_chat.id,
+        "notes": notes,
+        "content": pdf_text,
+        "session_name": session_name,
+        "source_type": "pdf",
+        "key_concepts": saved_concepts
+    }
+
+
+@router.get("/{chat_id}/pdf")
+def get_chat_pdf(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
+    """Redirect to Supabase signed URL for PDF (accepts token via query param for embedding)"""
+    from ..config import SECRET_KEY, ALGORITHM
+    from jose import jwt, JWTError
+    
+    # Verify token from query param
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get('id')
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    chat = db.query(models.Chat).filter(
+        models.Chat.id == chat_id,
+        models.Chat.user_id == user_id
+    ).first()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if chat.source_type != "pdf" or not chat.source_id:
+        raise HTTPException(status_code=404, detail="No PDF associated with this chat")
+    
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Storage not configured")
+    
+    # Generate signed URL (valid for 1 hour)
+    storage_path = f"{user_id}/{chat.source_id}.pdf"
+    try:
+        result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
+        signed_url = result.get("signedURL") or result.get("signedUrl")
+        if not signed_url:
+            raise HTTPException(status_code=404, detail="PDF file not found in storage")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get PDF: {str(e)}")
+    
+    # Redirect to the signed URL
+    return RedirectResponse(url=signed_url)
+
 
 @router.get("/", response_model=List[schemas.ChatOut])
 def get_user_chats(user: user_dependency, db: Session = Depends(get_db)):
@@ -300,6 +537,15 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
             detail="Chat not found"
         )
     
+    # Delete PDF from Supabase storage if this is a PDF chat
+    if chat.source_type == "pdf" and chat.source_id and supabase:
+        try:
+            storage_path = f"{user['id']}/{chat.source_id}.pdf"
+            supabase.storage.from_(PDF_BUCKET).remove([storage_path])
+        except Exception as e:
+            # Log error but continue with deletion
+            print(f"Warning: Failed to delete PDF from storage: {e}")
+    
     # Delete all messages associated with this chat
     db.query(models.Message).filter(
         models.Message.chat_id == chat_id
@@ -314,6 +560,22 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
     db.query(models.KeyConcept).filter(
         models.KeyConcept.chat_id == chat_id
     ).delete()
+    
+    # Delete all quizzes and their questions
+    quizzes = db.query(models.Quiz).filter(models.Quiz.chat_id == chat_id).all()
+    for quiz in quizzes:
+        db.query(models.QuizQuestion).filter(
+            models.QuizQuestion.quiz_id == quiz.id
+        ).delete()
+    db.query(models.Quiz).filter(models.Quiz.chat_id == chat_id).delete()
+    
+    # Delete all coding problems and their submissions
+    problems = db.query(models.CodingProblem).filter(models.CodingProblem.chat_id == chat_id).all()
+    for problem in problems:
+        db.query(models.CodingSubmission).filter(
+            models.CodingSubmission.problem_id == problem.id
+        ).delete()
+    db.query(models.CodingProblem).filter(models.CodingProblem.chat_id == chat_id).delete()
     
     # Delete the chat
     db.delete(chat)

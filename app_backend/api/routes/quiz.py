@@ -293,7 +293,7 @@ def generate_quiz(
         topics = [c.title for c in concepts]
     
     try:
-        transcript = chat.youtube_transcript[:15000]
+        transcript = chat.source_content[:15000]
         
         # Generate quiz with AI
         response = client.models.generate_content(

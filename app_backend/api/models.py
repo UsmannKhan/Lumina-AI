@@ -1,5 +1,35 @@
+# from .database import Base
+# from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
+# from datetime import datetime
+
+
+# class User(Base):
+#     __tablename__ = "users"
+
+#     id = Column(Integer, primary_key=True, nullable=False)
+#     username = Column(String, nullable=False, unique=True)
+#     hashed_password = Column(String, nullable=False)
+#     email = Column(String, nullable=False)
+
+
+# class Chat(Base):
+#     __tablename__ = "chats"
+
+#     id = Column(Integer, primary_key=True, nullable=False)
+#     youtube_id = Column(String, nullable=False)
+#     youtube_transcript = Column(Text, nullable=False)  # Plain text for AI
+#     youtube_transcript_timed = Column(Text, nullable=True)  # JSON string of timed segments
+#     prompt = Column(String, nullable=False)
+#     notes = Column(Text, nullable=False)
+#     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+#     session_name = Column(String, nullable=False)
+#     chat_style = Column(String, default="study")  # study, conversational, concise, custom
+#     custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
+#     manual_notes = Column(Text, nullable=True)  # User's own notes
+
 from .database import Base
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 
@@ -10,22 +40,57 @@ class User(Base):
     username = Column(String, nullable=False, unique=True)
     hashed_password = Column(String, nullable=False)
     email = Column(String, nullable=False)
+    
+    # Relationships
+    spaces = relationship("Space", back_populates="owner", cascade="all, delete-orphan")
+
+
+class Space(Base):
+    """A collection of related chats (e.g., a course, subject, or project)"""
+    __tablename__ = "spaces"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    owner = relationship("User", back_populates="spaces")
+    chats = relationship("Chat", back_populates="space")
 
 
 class Chat(Base):
     __tablename__ = "chats"
 
     id = Column(Integer, primary_key=True, nullable=False)
-    youtube_id = Column(String, nullable=False)
-    youtube_transcript = Column(Text, nullable=False)  # Plain text for AI
-    youtube_transcript_timed = Column(Text, nullable=True)  # JSON string of timed segments
-    prompt = Column(String, nullable=False)
-    notes = Column(Text, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    space_id = Column(Integer, ForeignKey("spaces.id", ondelete="SET NULL"), nullable=True)
+    
+    # Source info
+    source_type = Column(String, default="youtube", nullable=False)  # 'youtube', 'pdf', 'text'
+    source_id = Column(String, nullable=True)     # YouTube ID, or null for pdf/text
+    source_url = Column(String, nullable=True)    # YouTube URL, PDF storage URL, or null
+    
+    # Content
+    source_content = Column(Text, nullable=False)      # Transcript, PDF text, or pasted text
+    timed_content = Column(Text, nullable=True)        # JSON timed segments (YouTube only)
+    
+    # AI Generated
+    notes = Column(Text, nullable=False)               # AI-generated notes
+    prompt = Column(String, nullable=False)            # The prompt used to generate notes
+    
+    # User content
+    manual_notes = Column(Text, nullable=True)         # User's own notes
+    
+    # Metadata
     session_name = Column(String, nullable=False)
-    chat_style = Column(String, default="study")  # study, conversational, concise, custom
+    chat_style = Column(String, default="study")       # study, conversational, concise, custom
     custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
-    manual_notes = Column(Text, nullable=True)  # User's own notes
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    space = relationship("Space", back_populates="chats")
 
 
 class Message(Base):

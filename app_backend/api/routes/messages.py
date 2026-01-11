@@ -301,8 +301,8 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
             # Custom style uses user's instructions as the base prompt
             return f"""{custom_instructions}
 
-## Video Transcript:
-{chat.youtube_transcript}
+## Content:
+{chat.source_content}
 
 {conversation_history}
 
@@ -315,7 +315,7 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
     
     template = STYLE_PROMPTS.get(style, STYLE_PROMPTS['study'])
     return template.format(
-        transcript=chat.youtube_transcript,
+        transcript=chat.source_content,
         question=question,
         conversation_history=conversation_history
     )

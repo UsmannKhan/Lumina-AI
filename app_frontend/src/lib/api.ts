@@ -1,4 +1,4 @@
-import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse, Flashcard, FlashcardUpdateRequest, FlashcardCreateRequest, SetRenameRequest } from '@/types';
+import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse, Flashcard, FlashcardUpdateRequest, FlashcardCreateRequest, SetRenameRequest, Space, SpaceWithChats } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -90,15 +90,84 @@ class ApiClient {
     return this.request<Chat[]>('/chats/');
   }
 
-  async createChat(youtubeLink: string): Promise<CreateChatResponse> {
+  async createChat(youtubeLink: string, spaceId?: number): Promise<CreateChatResponse> {
     return this.request<CreateChatResponse>('/chats/', {
       method: 'POST',
-      body: JSON.stringify({ youtube_link: youtubeLink }),
+      body: JSON.stringify({ youtube_link: youtubeLink, space_id: spaceId }),
     });
+  }
+
+  async uploadPdf(file: File, spaceId?: number): Promise<CreateChatResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (spaceId) {
+      formData.append('space_id', spaceId.toString());
+    }
+
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/chats/pdf`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(error.detail || 'Upload failed');
+    }
+
+    return response.json();
+  }
+
+  getPdfUrl(chatId: number): string {
+    const token = this.getToken();
+    // Return URL with token as query param for PDF embedding
+    return `${API_BASE_URL}/chats/${chatId}/pdf?token=${token}`;
   }
 
   async deleteChat(chatId: number): Promise<void> {
     await this.request(`/chats/${chatId}`, { method: 'DELETE' });
+  }
+
+  // Spaces
+  async getSpaces(): Promise<Space[]> {
+    return this.request<Space[]>('/spaces/');
+  }
+
+  async createSpace(name: string): Promise<Space> {
+    return this.request<Space>('/spaces/', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async getSpace(spaceId: number): Promise<SpaceWithChats> {
+    return this.request<SpaceWithChats>(`/spaces/${spaceId}`);
+  }
+
+  async updateSpace(spaceId: number, name: string): Promise<Space> {
+    return this.request<Space>(`/spaces/${spaceId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async deleteSpace(spaceId: number): Promise<{ message: string; id: number }> {
+    return this.request<{ message: string; id: number }>(`/spaces/${spaceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async moveChatToSpace(chatId: number, spaceId: number | null): Promise<{ message: string; chat_id: number; space_id: number | null }> {
+    return this.request<{ message: string; chat_id: number; space_id: number | null }>('/spaces/move-chat', {
+      method: 'POST',
+      body: JSON.stringify({ chat_id: chatId, space_id: spaceId }),
+    });
   }
 
   // Messages

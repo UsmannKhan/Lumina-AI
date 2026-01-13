@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Chat, Space } from '@/types';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, MessageSquare, ChevronLeft, Play, LogOut, Sparkles, Folder, FolderOpen, Edit2, X, Check } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, ChevronLeft, Play, LogOut, Sparkles, Folder, FolderOpen, Edit2, X, Check, FileText } from 'lucide-react';
 
 interface ChatSidebarProps {
   chats: Chat[];
@@ -70,14 +70,14 @@ export default function ChatSidebar({
 
   const handleCreateSpace = async () => {
     if (!newSpaceName.trim() || isSubmittingSpace) return;
-    
+
     setIsSubmittingSpace(true);
     const name = newSpaceName.trim();
-    
+
     // Optimistic: close input immediately
     setNewSpaceName('');
     setIsCreatingSpace(false);
-    
+
     try {
       await onCreateSpace(name);
     } catch (error) {
@@ -92,13 +92,13 @@ export default function ChatSidebar({
 
   const handleRenameSpace = async (spaceId: number) => {
     if (!editingSpaceName.trim()) return;
-    
+
     const newName = editingSpaceName.trim();
-    
+
     // Optimistic: close input immediately
     setEditingSpaceId(null);
     setEditingSpaceName('');
-    
+
     try {
       await onRenameSpace(spaceId, newName);
     } catch (error) {
@@ -108,11 +108,11 @@ export default function ChatSidebar({
 
   const handleDeleteSpace = async (spaceId: number, spaceName: string) => {
     if (deletingSpaceId) return; // Prevent double-click
-    
+
     if (!confirm(`Delete "${spaceName}"? Chats will be unassigned.`)) return;
-    
+
     setDeletingSpaceId(spaceId);
-    
+
     try {
       await onDeleteSpace(spaceId);
     } catch (error) {
@@ -157,12 +157,21 @@ export default function ChatSidebar({
             background: activeChat?.id === chat.id ? 'rgba(12, 17, 91, 0.1)' : 'rgba(255, 255, 255, 0.5)',
           }}
         >
-          <Play
-            className={cn(
-              'w-3.5 h-3.5 2xl:w-5 2xl:h-5',
-              activeChat?.id === chat.id ? 'text-[#0C115B]' : 'text-gray-500'
-            )}
-          />
+          {chat.source_type === 'pdf' ? (
+            <FileText
+              className={cn(
+                'w-3.5 h-3.5 2xl:w-5 2xl:h-5',
+                activeChat?.id === chat.id ? 'text-[#0C115B]' : 'text-gray-500'
+              )}
+            />
+          ) : (
+            <Play
+              className={cn(
+                'w-3.5 h-3.5 2xl:w-5 2xl:h-5',
+                activeChat?.id === chat.id ? 'text-[#0C115B]' : 'text-gray-500'
+              )}
+            />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">

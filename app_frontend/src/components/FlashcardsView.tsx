@@ -11,9 +11,11 @@ import { Shuffle, ChevronLeft, ChevronRight, RotateCcw, Loader2, RefreshCw, Ligh
 interface FlashcardsViewProps {
   chatId: number;
   videoTitle: string;
+  sourceType?: string; // 'youtube', 'pdf', 'text'
 }
 
-export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewProps) {
+export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtube' }: FlashcardsViewProps) {
+  const isYouTube = sourceType === 'youtube';
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -868,7 +870,7 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       {currentCard.explanation && (
                         <p className="text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
                       )}
-                      {currentCard.timestamp && (
+                      {isYouTube && currentCard.timestamp && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1016,16 +1018,18 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
-                    <input
-                      type="text"
-                      value={editFormData.timestamp || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, timestamp: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
-                      placeholder="00:00"
-                    />
-                  </div>
+                  {isYouTube && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
+                      <input
+                        type="text"
+                        value={editFormData.timestamp || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, timestamp: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
+                        placeholder="00:00"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Explanation</label>
@@ -1102,16 +1106,18 @@ export default function FlashcardsView({ chatId, videoTitle }: FlashcardsViewPro
                       className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
-                    <input
-                      type="text"
-                      value={newCardData.timestamp}
-                      onChange={(e) => setNewCardData({ ...newCardData, timestamp: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
-                      placeholder="00:00"
-                    />
-                  </div>
+                  {isYouTube && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Timestamp</label>
+                      <input
+                        type="text"
+                        value={newCardData.timestamp}
+                        onChange={(e) => setNewCardData({ ...newCardData, timestamp: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/5 border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:border-[#0C115B]/50"
+                        placeholder="00:00"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Explanation</label>

@@ -11,9 +11,10 @@ import { Loader2, CheckCircle, XCircle, ArrowRight, ChevronLeft, ChevronRight, T
 interface QuizViewProps {
   chatId: number;
   videoTitle: string;
+  sourceType?: string; // 'youtube', 'pdf', 'text'
 }
 
-export default function QuizView({ chatId, videoTitle }: QuizViewProps) {
+export default function QuizView({ chatId, videoTitle, sourceType = 'youtube' }: QuizViewProps) {
   // View mode
   const [viewMode, setViewMode] = useState<'config' | 'quiz' | 'results'>('config');
 

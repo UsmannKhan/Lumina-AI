@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { jsPDF } from 'jspdf';
 import { Chat, Message, TranscriptSegment } from '@/types';
@@ -10,8 +10,20 @@ import QuizView from './QuizView';
 import CodePracticeView from './CodePracticeView';
 import TranscriptView from './TranscriptView';
 import ManualNotesEditor from './ManualNotesEditor';
-import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2, PenLine, Bot } from 'lucide-react';
+import SelectionBubbleMenu from './SelectionBubbleMenu';
+import dynamic from 'next/dynamic';
+import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2, PenLine, Bot, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+
+// Dynamic import for PdfViewer to avoid SSR issues with PDF.js
+const PdfViewer = dynamic(() => import('./PdfViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-gray-100">
+      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+    </div>
+  )
+});
 
 interface ChatViewProps {
   chat: Chat;
@@ -42,6 +54,12 @@ export default function ChatView({
   const [customInstructions, setCustomInstructions] = useState(chat.custom_instructions || '');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [notesSubTab, setNotesSubTab] = useState<'ai' | 'manual'>('ai');
+  const [manualNotesContent, setManualNotesContent] = useState<string>(chat.manual_notes || '');
+
+  // PDF selection state
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const studyDropdownRef = useRef<HTMLDivElement>(null);
@@ -51,7 +69,7 @@ export default function ChatView({
   const timedTranscript: TranscriptSegment[] | undefined = chat.timed_content
     ? JSON.parse(chat.timed_content)
     : undefined;
-  
+
   // Check if this is a YouTube source
   const isYouTube = chat.source_type === 'youtube';
 
@@ -102,6 +120,41 @@ export default function ChatView({
       console.error('Failed to save custom instructions:', err);
     }
   };
+
+  // PDF text selection handlers
+  const handleTextSelect = useCallback((text: string, position: { x: number; y: number }) => {
+    setSelectedText(text);
+    setSelectionPosition(position);
+  }, []);
+
+  const handleCloseSelection = useCallback(() => {
+    setSelectedText(null);
+    setSelectionPosition(null);
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
+  const handleChatWithSelection = useCallback((text: string) => {
+    setActiveTab('chat');
+    setInput(`Regarding this text: "${text}"\n\n`);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleAddToNotes = useCallback((text: string) => {
+    setActiveTab('notes');
+    setNotesSubTab('manual');
+    // Append to manual notes
+    setManualNotesContent(prev => prev ? `${prev}\n\n${text}` : text);
+  }, []);
+
+  const handleExplain = useCallback(async (text: string) => {
+    setActiveTab('chat');
+    await onSendMessage(`Explain: ${text}`, false);
+  }, [onSendMessage]);
+
+  const handleDefine = useCallback(async (text: string) => {
+    setActiveTab('chat');
+    await onSendMessage(`Define: ${text}`, false);
+  }, [onSendMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,29 +443,24 @@ export default function ChatView({
         >
           {/* PDF Viewer - Full height for PDF sources */}
           {!isYouTube && chat.source_type === 'pdf' && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between px-3 2xl:px-4 py-2 2xl:py-3 flex-shrink-0 border-b border-black/5">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-[#0C115B]" />
-                  <span className="text-sm font-semibold text-gray-700 truncate max-w-[200px]">
-                    {chat.session_name}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setIsVideoExpanded(!isVideoExpanded)}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                  title={isVideoExpanded ? "Collapse" : "Expand"}
-                >
-                  {isVideoExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                </button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <iframe
-                  src={api.getPdfUrl(chat.id)}
-                  className="w-full h-full border-0"
-                  title="PDF Viewer"
+            <div className="flex-1 flex flex-col min-h-0 relative">
+              <PdfViewer
+                pdfUrl={api.getPdfUrl(chat.id)}
+                onTextSelect={handleTextSelect}
+              />
+
+              {/* Selection Bubble Menu */}
+              {selectedText && selectionPosition && (
+                <SelectionBubbleMenu
+                  selectedText={selectedText}
+                  position={selectionPosition}
+                  onChat={handleChatWithSelection}
+                  onAddToNotes={handleAddToNotes}
+                  onExplain={handleExplain}
+                  onDefine={handleDefine}
+                  onClose={handleCloseSelection}
                 />
-              </div>
+              )}
             </div>
           )}
 
@@ -446,81 +494,81 @@ export default function ChatView({
 
           {/* Transcript Toggle & Content - Only for YouTube sources */}
           {isYouTube && (
-          <div className={cn(
-            "flex flex-col min-h-0 overflow-hidden transition-all duration-300",
-            transcriptMode === 'full' ? "flex-1" : transcriptMode === 'compact' ? "flex-1" : "h-auto"
-          )} style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}>
-            {/* Toggle Bar */}
-            <div
-              className="flex items-center justify-between px-3 2xl:px-4 py-1.5 2xl:py-2 flex-shrink-0"
-              style={{ background: 'rgba(255, 255, 255, 0.5)' }}
-            >
-              <div className="flex items-center gap-1.5 2xl:gap-2">
-                <Subtitles size={14} className="2xl:w-[18px] 2xl:h-[18px] text-gray-500" />
-                <span className="text-sm 2xl:text-base font-semibold text-gray-700">Transcript</span>
-              </div>
+            <div className={cn(
+              "flex flex-col min-h-0 overflow-hidden transition-all duration-300",
+              transcriptMode === 'full' ? "flex-1" : transcriptMode === 'compact' ? "flex-1" : "h-auto"
+            )} style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}>
+              {/* Toggle Bar */}
+              <div
+                className="flex items-center justify-between px-3 2xl:px-4 py-1.5 2xl:py-2 flex-shrink-0"
+                style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+              >
+                <div className="flex items-center gap-1.5 2xl:gap-2">
+                  <Subtitles size={14} className="2xl:w-[18px] 2xl:h-[18px] text-gray-500" />
+                  <span className="text-sm 2xl:text-base font-semibold text-gray-700">Transcript</span>
+                </div>
 
-              <div className="flex items-center gap-1.5 2xl:gap-2">
-                {transcriptMode !== 'collapsed' && (
+                <div className="flex items-center gap-1.5 2xl:gap-2">
+                  {transcriptMode !== 'collapsed' && (
+                    <button
+                      onClick={() => setIsTranscriptAutoScroll(!isTranscriptAutoScroll)}
+                      className={cn(
+                        "px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium transition-all",
+                        isTranscriptAutoScroll
+                          ? "bg-[#0C115B]/10 text-[#0C115B]"
+                          : "bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200"
+                      )}
+                    >
+                      Auto-scroll
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => setIsTranscriptAutoScroll(!isTranscriptAutoScroll)}
-                    className={cn(
-                      "px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium transition-all",
-                      isTranscriptAutoScroll
-                        ? "bg-[#0C115B]/10 text-[#0C115B]"
-                        : "bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200"
-                    )}
-                  >
-                    Auto-scroll
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    if (transcriptMode === 'collapsed') setTranscriptMode('compact');
-                    else if (transcriptMode === 'compact') setTranscriptMode('full');
-                    else setTranscriptMode('compact');
-                  }}
-                  className="px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
-                >
-                  {transcriptMode === 'collapsed' ? 'Show' : transcriptMode === 'compact' ? 'Expand' : 'Compact'}
-                </button>
-
-                {transcriptMode !== 'collapsed' && (
-                  <button
-                    onClick={() => setTranscriptMode('collapsed')}
+                    onClick={() => {
+                      if (transcriptMode === 'collapsed') setTranscriptMode('compact');
+                      else if (transcriptMode === 'compact') setTranscriptMode('full');
+                      else setTranscriptMode('compact');
+                    }}
                     className="px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
                   >
-                    Hide
+                    {transcriptMode === 'collapsed' ? 'Show' : transcriptMode === 'compact' ? 'Expand' : 'Compact'}
                   </button>
-                )}
+
+                  {transcriptMode !== 'collapsed' && (
+                    <button
+                      onClick={() => setTranscriptMode('collapsed')}
+                      className="px-2.5 2xl:px-3.5 py-1 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm font-medium bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-all"
+                    >
+                      Hide
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Transcript Content */}
+              {transcriptMode !== 'collapsed' && timedTranscript && (
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <TranscriptView
+                    transcript={chat.source_content}
+                    transcriptTimed={timedTranscript}
+                    youtubeId={chat.source_id || ''}
+                    hideHeader={true}
+                    isAutoScrollControlled={true}
+                    autoScrollValue={isTranscriptAutoScroll}
+                    onAutoScrollChange={setIsTranscriptAutoScroll}
+                    isExpanded={isVideoExpanded}
+                  />
+                </div>
+              )}
+
+              {transcriptMode !== 'collapsed' && !timedTranscript && (
+                <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                  <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap font-medium">
+                    {chat.source_content}
+                  </p>
+                </div>
+              )}
             </div>
-
-            {/* Transcript Content */}
-            {transcriptMode !== 'collapsed' && timedTranscript && (
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                <TranscriptView
-                  transcript={chat.source_content}
-                  transcriptTimed={timedTranscript}
-                  youtubeId={chat.source_id || ''}
-                  hideHeader={true}
-                  isAutoScrollControlled={true}
-                  autoScrollValue={isTranscriptAutoScroll}
-                  onAutoScrollChange={setIsTranscriptAutoScroll}
-                  isExpanded={isVideoExpanded}
-                />
-              </div>
-            )}
-
-            {transcriptMode !== 'collapsed' && !timedTranscript && (
-              <div className="flex-1 min-h-0 overflow-y-auto p-4">
-                <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap font-medium">
-                  {chat.source_content}
-                </p>
-              </div>
-            )}
-          </div>
           )}
         </div>
 
@@ -614,11 +662,11 @@ export default function ChatView({
           )}
 
           {activeTab === 'flashcards' && (
-            <FlashcardsView chatId={chat.id} videoTitle={chat.session_name} />
+            <FlashcardsView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} />
           )}
 
           {activeTab === 'quiz' && (
-            <QuizView chatId={chat.id} videoTitle={chat.session_name} />
+            <QuizView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} />
           )}
 
           {activeTab === 'code' && (

@@ -24,7 +24,7 @@ export default function Dashboard() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
-  
+
   // Track spaces being deleted to prevent them from reappearing on reload
   const deletingSpaceIds = useRef<Set<number>>(new Set());
 
@@ -142,14 +142,14 @@ export default function Dashboard() {
   const handleDeleteSpace = async (spaceId: number) => {
     // Track this space as being deleted to prevent it from reappearing on reload
     deletingSpaceIds.current.add(spaceId);
-    
+
     // Optimistic: remove space immediately
     const deletedSpace = spaces.find(s => s.id === spaceId);
     setSpaces(prev => prev.filter(s => s.id !== spaceId));
-    
+
     // Optimistic: unassign chats from this space
     setChats(prev => prev.map(c => c.space_id === spaceId ? { ...c, space_id: null } : c));
-    
+
     if (activeSpaceId === spaceId) {
       setActiveSpaceId(null);
     }
@@ -191,12 +191,20 @@ export default function Dashboard() {
   const handleSendMessage = async (input: string, useWebSearch: boolean = false) => {
     if (!activeChat) return;
 
+    // Add user message optimistically so it shows immediately
+    const tempId = Date.now();
+    const userMessage: Message = { id: tempId, input, output: '', chat_id: activeChat.id, user_id: 0 };
+    setMessages(prev => [...prev, userMessage]);
+
     setIsSendingMessage(true);
     try {
       const response = await api.createMessage(input, activeChat.id, useWebSearch);
-      setMessages(prev => [...prev, response]);
+      // Replace temp message with actual response (same input, now with output)
+      setMessages(prev => prev.map(m => m.id === tempId ? response : m));
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Remove temp message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     } finally {
       setIsSendingMessage(false);
     }

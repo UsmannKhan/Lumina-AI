@@ -66,25 +66,25 @@ export default function SelectionBubbleMenu({
             icon: MessageSquare,
             label: 'Chat',
             onClick: () => { onChat(selectedText); onClose(); },
-            color: 'text-blue-600 hover:bg-blue-50'
+            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: FileText,
             label: 'Add to Notes',
             onClick: () => { onAddToNotes(selectedText); onClose(); },
-            color: 'text-green-600 hover:bg-green-50'
+            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: Lightbulb,
             label: 'Explain',
             onClick: () => { onExplain(selectedText); onClose(); },
-            color: 'text-amber-600 hover:bg-amber-50'
+            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: BookOpen,
             label: 'Define',
             onClick: () => { onDefine(selectedText); onClose(); },
-            color: 'text-purple-600 hover:bg-purple-50'
+            color: 'text-gray-700 hover:bg-gray-100'
         }
     ];
 

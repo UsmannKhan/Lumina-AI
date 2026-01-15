@@ -12,7 +12,7 @@ import TranscriptView from './TranscriptView';
 import ManualNotesEditor from './ManualNotesEditor';
 import SelectionBubbleMenu from './SelectionBubbleMenu';
 import dynamic from 'next/dynamic';
-import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2, PenLine, Bot, Loader2 } from 'lucide-react';
+import { Download, Maximize2, Minimize2, FileText, Layers, Trophy, Subtitles, Globe, MessageSquare, ChevronDown, Send, Sparkles, User, Menu, Code2, PenLine, Bot, Loader2, Quote, X, Copy, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 
 // Dynamic import for PdfViewer to avoid SSR issues with PDF.js
@@ -60,6 +60,12 @@ export default function ChatView({
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Attached quote for chat (selected text to ask about)
+  const [attachedQuote, setAttachedQuote] = useState<string | null>(null);
+
+  // Copy feedback state
+  const [notesCopied, setNotesCopied] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const studyDropdownRef = useRef<HTMLDivElement>(null);
@@ -73,8 +79,18 @@ export default function ChatView({
   // Check if this is a YouTube source
   const isYouTube = chat.source_type === 'youtube';
 
+  // Instant scroll when switching to chat tab
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeTab === 'chat') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }
+  }, [activeTab]);
+
+  // Smooth scroll when new messages arrive
+  useEffect(() => {
+    if (activeTab === 'chat' && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Close dropdowns when clicking outside
@@ -135,15 +151,16 @@ export default function ChatView({
 
   const handleChatWithSelection = useCallback((text: string) => {
     setActiveTab('chat');
-    setInput(`Regarding this text: "${text}"\n\n`);
+    setAttachedQuote(text);
     inputRef.current?.focus();
   }, []);
 
   const handleAddToNotes = useCallback((text: string) => {
     setActiveTab('notes');
     setNotesSubTab('manual');
-    // Append to manual notes
-    setManualNotesContent(prev => prev ? `${prev}\n\n${text}` : text);
+    // Append as HTML paragraph (Tiptap uses HTML format)
+    const newParagraph = `<p>${text}</p>`;
+    setManualNotesContent(prev => prev ? `${prev}${newParagraph}` : newParagraph);
   }, []);
 
   const handleExplain = useCallback(async (text: string) => {
@@ -160,7 +177,12 @@ export default function ChatView({
     e.preventDefault();
     if (!input.trim() || isSending) return;
 
-    const message = input;
+    // Build message with attached quote if present
+    let message = input;
+    if (attachedQuote) {
+      message = `Regarding this text: "${attachedQuote}"\n\n${input}`;
+      setAttachedQuote(null);
+    }
     setInput('');
     await onSendMessage(message, webSearchEnabled);
   };
@@ -581,49 +603,63 @@ export default function ChatView({
             >
               {/* Notes Header with Sub-tabs */}
               <div className="flex items-center justify-between gap-2 2xl:gap-3 p-3 2xl:p-6 pb-0 2xl:pb-0 flex-shrink-0">
-                <div className="flex items-center gap-2 2xl:gap-3">
-                  <FileText size={20} className="text-[#0C115B] 2xl:w-7 2xl:h-7" />
-                  <h2 className="font-bold text-lg 2xl:text-2xl text-gray-800">Notes</h2>
+                {/* Left side: Sub-tabs */}
+                <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.05)' }}>
+                  <button
+                    onClick={() => setNotesSubTab('ai')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
+                      notesSubTab === 'ai'
+                        ? 'bg-white text-[#0C115B] shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    <Bot size={14} className="2xl:w-4 2xl:h-4" />
+                    AI Generated
+                  </button>
+                  <button
+                    onClick={() => setNotesSubTab('manual')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
+                      notesSubTab === 'manual'
+                        ? 'bg-white text-[#0C115B] shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    <PenLine size={14} className="2xl:w-4 2xl:h-4" />
+                    My Notes
+                  </button>
                 </div>
 
-                {/* Right side: Sub-tabs + Export */}
+                {/* Right side: Export */}
                 <div className="flex items-center gap-2 2xl:gap-3">
-                  {/* Sub-tabs */}
-                  <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.05)' }}>
-                    <button
-                      onClick={() => setNotesSubTab('ai')}
-                      className={cn(
-                        'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
-                        notesSubTab === 'ai'
-                          ? 'bg-white text-[#0C115B] shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      )}
-                    >
-                      <Bot size={14} className="2xl:w-4 2xl:h-4" />
-                      AI Generated
-                    </button>
-                    <button
-                      onClick={() => setNotesSubTab('manual')}
-                      className={cn(
-                        'flex items-center gap-1.5 px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-md text-xs 2xl:text-sm font-medium transition-all',
-                        notesSubTab === 'manual'
-                          ? 'bg-white text-[#0C115B] shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      )}
-                    >
-                      <PenLine size={14} className="2xl:w-4 2xl:h-4" />
-                      My Notes
-                    </button>
-                  </div>
 
                   {notesSubTab === 'ai' && (
-                    <button
-                      onClick={handleExportPDF}
-                      className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
-                    >
-                      <Download size={16} className="2xl:w-5 2xl:h-5" />
-                      Export
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(chat.notes || '');
+                          setNotesCopied(true);
+                          setTimeout(() => setNotesCopied(false), 2000);
+                        }}
+                        className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+                        title="Copy to clipboard"
+                      >
+                        {notesCopied ? (
+                          <Check size={16} className="2xl:w-5 2xl:h-5 text-green-500" />
+                        ) : (
+                          <Copy size={16} className="2xl:w-5 2xl:h-5" />
+                        )}
+                        {notesCopied ? 'Copied' : 'Copy'}
+                      </button>
+                      <button
+                        onClick={handleExportPDF}
+                        className="flex items-center gap-1.5 2xl:gap-2 px-3 2xl:px-4 py-1.5 2xl:py-2.5 rounded-lg text-sm 2xl:text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-white/50 transition-all"
+                      >
+                        <Download size={16} className="2xl:w-5 2xl:h-5" />
+                        Export
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -650,8 +686,9 @@ export default function ChatView({
                   >
                     <ManualNotesEditor
                       chatId={chat.id}
-                      initialContent={chat.manual_notes || ''}
+                      initialContent={manualNotesContent}
                       onSave={async (content) => {
+                        setManualNotesContent(content);
                         await api.updateManualNotes(chat.id, content);
                       }}
                     />
@@ -730,20 +767,23 @@ export default function ChatView({
                         </div>
                       </div>
 
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#0C115B]/10 flex items-center justify-center">
-                          <Sparkles size={18} className="text-[#0C115B]" />
+                      {/* Only show AI response if there's output */}
+                      {message.output && (
+                        <div className="flex gap-4">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#0C115B]/10 flex items-center justify-center">
+                            <Sparkles size={18} className="text-[#0C115B]" />
+                          </div>
+                          <div
+                            className="flex-1 pt-2 p-4 rounded-xl prose max-w-none"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.6)',
+                              border: '1px solid rgba(0, 0, 0, 0.04)',
+                            }}
+                          >
+                            <ReactMarkdown>{message.output}</ReactMarkdown>
+                          </div>
                         </div>
-                        <div
-                          className="flex-1 pt-2 p-4 rounded-xl prose max-w-none"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.6)',
-                            border: '1px solid rgba(0, 0, 0, 0.04)',
-                          }}
-                        >
-                          <ReactMarkdown>{message.output}</ReactMarkdown>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   ))}
 
@@ -774,6 +814,21 @@ export default function ChatView({
                 }}
               >
                 <form onSubmit={handleSubmit} className="max-w-xl 2xl:max-w-5xl mx-auto">
+                  {/* Attached quote bubble */}
+                  {attachedQuote && (
+                    <div className="mb-2 inline-flex items-start gap-2 p-2.5 px-3 rounded-lg bg-[#0C115B]/5 border border-[#0C115B]/10 max-w-sm">
+                      <p className="flex-1 text-sm text-gray-600 line-clamp-4 italic leading-relaxed">
+                        "{attachedQuote.length > 100 ? attachedQuote.slice(0, 100) + '...' : attachedQuote}"
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedQuote(null)}
+                        className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-2 2xl:gap-3">
                     <div className="flex-1 relative">
                       <textarea
@@ -785,7 +840,7 @@ export default function ChatView({
                           e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder={webSearchEnabled ? 'Ask with web search...' : 'Ask a question about the video...'}
+                        placeholder={webSearchEnabled ? 'Ask with web search...' : 'Ask a question...'}
                         rows={1}
                         className="w-full rounded-xl 2xl:rounded-2xl px-3 py-2.5 2xl:px-5 2xl:py-4 text-sm 2xl:text-base text-gray-800 placeholder:text-gray-400 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-[#0C115B]/30"
                         style={{

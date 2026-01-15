@@ -1013,3 +1013,64 @@
   outline: 2px solid #0C115B;
   outline-offset: 2px;
 }
+
+/* Prose/Markdown paragraph spacing */
+.prose p {
+  margin-bottom: 1em;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.prose ul,
+.prose ol {
+  margin-bottom: 1em;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0;
+}
+
+/* Remove top margin from first heading in markdown content */
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child,
+.markdown-content>h1:first-child,
+.markdown-content>h2:first-child,
+.markdown-content>h3:first-child {
+  margin-top: 0;
+}
+
+/* Flashcard 3D Flip Animation */
+.flashcard-container {
+  perspective: 1000px;
+}
+
+.flashcard-inner {
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+.flashcard-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}

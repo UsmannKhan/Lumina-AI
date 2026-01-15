@@ -222,23 +222,23 @@ router = APIRouter(
 # ============== Chat Style Prompts ==============
 
 STYLE_PROMPTS = {
-    "study": """You are an expert tutor helping someone deeply understand a YouTube video's content.
+    "study": """You are an expert tutor helping someone deeply understand the content of "{content_title}".
 
 ## Your Approach:
 - Provide detailed explanations with examples when helpful
 - Break down complex concepts into digestible parts
 - Use analogies to connect new ideas to familiar ones
 - Encourage deeper thinking with follow-up questions when appropriate
-- Cite specific parts of the video when relevant
+- Cite specific parts of the {source_type_label} when relevant
 
 ## Rules:
-- Base answers on the video transcript provided and conversation history
+- Base answers on the {source_type_label} content provided and conversation history
 - Use markdown: **bold** for key terms, bullet points for steps/lists, `code` for technical terms
-- If something isn't covered in the video, say so and supplement with your knowledge
+- If something isn't covered in the {source_type_label}, say so and supplement with your knowledge
 - Don't start with filler like "Great question!"
 - Don't say "As an AI..." or give disclaimers
 
-## Video Transcript:
+## {source_type_label_cap} Content:
 {transcript}
 
 {conversation_history}
@@ -247,7 +247,7 @@ STYLE_PROMPTS = {
 
 ## Your explanation:""",
 
-    "conversational": """You are a knowledgeable friend chatting about a YouTube video.
+    "conversational": """You are a knowledgeable friend chatting about "{content_title}".
 
 ## Your Personality:
 - Casual and friendly, like texting with a smart friend
@@ -256,13 +256,13 @@ STYLE_PROMPTS = {
 - Keep it chill but informative
 
 ## Rules:
-- Base answers on the video transcript and prior conversation
+- Base answers on the {source_type_label} content and prior conversation
 - Keep responses focused - short answers for simple questions
 - Use markdown when helpful: **bold**, bullet points
-- If the video doesn't cover something, say so and share what you know
+- If the {source_type_label} doesn't cover something, say so and share what you know
 - No filler phrases, no AI disclaimers
 
-## Video Transcript:
+## {source_type_label_cap} Content:
 {transcript}
 
 {conversation_history}
@@ -271,17 +271,17 @@ STYLE_PROMPTS = {
 
 ## Your response:""",
 
-    "concise": """You are a helpful assistant providing brief, direct answers about a YouTube video.
+    "concise": """You are a helpful assistant providing brief, direct answers about "{content_title}".
 
 ## Rules:
 - Be direct and to the point - no fluff
 - Use bullet points for multiple items
 - One-sentence answers when possible
 - Only elaborate if the question requires it
-- Base answers on the video transcript
-- If not in video, briefly supplement from your knowledge
+- Base answers on the {source_type_label} content
+- If not in the {source_type_label}, briefly supplement from your knowledge
 
-## Video Transcript:
+## {source_type_label_cap} Content:
 {transcript}
 
 {conversation_history}
@@ -295,11 +295,26 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
     """Get the appropriate prompt based on chat style."""
     style = getattr(chat, 'chat_style', 'study') or 'study'
     
+    # Determine source type label based on chat.source_type
+    source_type = getattr(chat, 'source_type', 'video') or 'video'
+    source_type_labels = {
+        'video': 'video',
+        'pdf': 'PDF document',
+        'youtube': 'video',
+    }
+    source_type_label = source_type_labels.get(source_type, 'content')
+    source_type_label_cap = source_type_label.capitalize() if source_type_label != 'PDF document' else 'PDF Document'
+    
+    # Get content title from session_name
+    content_title = getattr(chat, 'session_name', 'Untitled') or 'Untitled'
+    
     if style == 'custom':
         custom_instructions = getattr(chat, 'custom_instructions', '') or ''
         if custom_instructions.strip():
             # Custom style uses user's instructions as the base prompt
             return f"""{custom_instructions}
+
+## Content Title: {content_title}
 
 ## Content:
 {chat.source_content}
@@ -317,7 +332,10 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
     return template.format(
         transcript=chat.source_content,
         question=question,
-        conversation_history=conversation_history
+        conversation_history=conversation_history,
+        content_title=content_title,
+        source_type_label=source_type_label,
+        source_type_label_cap=source_type_label_cap
     )
 
 

@@ -113,7 +113,7 @@ export const MathExtension = Node.create({
     },
 
     renderHTML({ HTMLAttributes }) {
-        return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'math-block' }), 0];
+        return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'math-block' })];
     },
 
     addNodeView() {

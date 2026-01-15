@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import {
     ChevronLeft,
@@ -10,8 +10,16 @@ import {
     ChevronDown,
     Minus,
     Plus,
+    Search,
+    X,
+    RotateCw,
+    Maximize2,
+    Minimize2,
+    Moon,
+    Sun,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Fuse from 'fuse.js';
 
 // Import CSS for text layer (v9.x path)
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
@@ -31,6 +39,20 @@ const ZOOM_OPTIONS = [
     { label: '200%', value: 2.0 },
 ];
 
+// Type for storing page text content
+interface PageText {
+    pageNum: number;
+    text: string;
+}
+
+// Type for search results
+interface SearchResult {
+    text: string;
+    pageNum: number;
+    isExact: boolean;
+    matchIndex: number; // Position in original text for highlighting
+}
+
 interface PdfViewerProps {
     pdfUrl: string;
     onTextSelect?: (selectedText: string, position: { x: number; y: number }) => void;
@@ -41,6 +63,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [numPages, setNumPages] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageInputValue, setPageInputValue] = useState('1'); // Local state for typing
     const [zoomValue, setZoomValue] = useState<'fit' | number>('fit');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -49,6 +72,47 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
     const [isZoomDropdownOpen, setIsZoomDropdownOpen] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const zoomDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Search state
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [pdfTextContent, setPdfTextContent] = useState<PageText[]>([]);
+    const [highlightPage, setHighlightPage] = useState<number | null>(null);
+    const [highlightText, setHighlightText] = useState<string>('');
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const pdfDocRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
+
+    // Rotation state (0, 90, 180, 270 degrees)
+    const [rotation, setRotation] = useState(0);
+
+    // Dark mode state for PDF
+    const [isDarkMode, setIsDarkMode] = useState(false);
+
+    // Fullscreen state
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Toggle fullscreen
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            containerRef.current?.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    };
+
+    // Sync fullscreen state with browser
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+    // Sync page input with currentPage
+    useEffect(() => {
+        setPageInputValue(String(currentPage));
+    }, [currentPage]);
 
     // Calculate dimensions for fit mode
     useEffect(() => {
@@ -132,11 +196,33 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
         }
     }, [onTextSelect]);
 
-    const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-        setNumPages(numPages);
+    const onDocumentLoadSuccess = useCallback(async ({ numPages: loadedNumPages }: { numPages: number }) => {
+        setNumPages(loadedNumPages);
         setIsLoading(false);
         setError(null);
-    }, []);
+
+        // Extract text from all pages for search
+        try {
+            const pdf = await pdfjs.getDocument(pdfUrl).promise;
+            pdfDocRef.current = pdf;
+            const textContent: PageText[] = [];
+
+            for (let i = 1; i <= loadedNumPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const pageText = (content.items as any[])
+                    .filter((item) => item.str)
+                    .map((item) => item.str)
+                    .join(' ');
+                textContent.push({ pageNum: i, text: pageText });
+            }
+
+            setPdfTextContent(textContent);
+        } catch (err) {
+            console.error('Failed to extract PDF text:', err);
+        }
+    }, [pdfUrl]);
 
     const onDocumentLoadError = useCallback((error: Error) => {
         console.error('PDF load error:', error);
@@ -160,6 +246,117 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
         const newPage = Math.max(1, currentPage - 1);
         scrollToPage(newPage);
     };
+
+    // Fuse.js instance for fuzzy search
+    const fuse = useMemo(() => {
+        if (pdfTextContent.length === 0) return null;
+        return new Fuse(pdfTextContent, {
+            keys: ['text'],
+            threshold: 0.4, // Lower = stricter matching
+            includeScore: true,
+            includeMatches: true,
+            minMatchCharLength: 3,
+        });
+    }, [pdfTextContent]);
+
+    // Compute search results
+    const searchResults = useMemo((): SearchResult[] => {
+        if (!searchQuery.trim() || pdfTextContent.length === 0) return [];
+
+        const query = searchQuery.toLowerCase();
+        const results: SearchResult[] = [];
+        const seenPages = new Set<number>();
+
+        // Exact matches first
+        pdfTextContent.forEach((page) => {
+            const lowerText = page.text.toLowerCase();
+            const matchIndex = lowerText.indexOf(query);
+            if (matchIndex !== -1) {
+                // Get snippet starting from match position (match + 100 chars after)
+                const end = Math.min(page.text.length, matchIndex + 120);
+                const snippet = page.text.slice(matchIndex, end);
+                results.push({
+                    text: snippet.length < page.text.length - matchIndex ? `${snippet}...` : snippet,
+                    pageNum: page.pageNum,
+                    isExact: true,
+                    matchIndex,
+                });
+                seenPages.add(page.pageNum);
+            }
+        });
+
+        // Fuzzy matches (exclude pages already found in exact)
+        if (fuse && results.length < 10) {
+            const fuseResults = fuse.search(searchQuery, { limit: 10 });
+            fuseResults.forEach((result) => {
+                if (!seenPages.has(result.item.pageNum) && results.length < 10) {
+                    const text = result.item.text;
+                    const snippet = text.slice(0, 100);
+                    results.push({
+                        text: `...${snippet}...`,
+                        pageNum: result.item.pageNum,
+                        isExact: false,
+                        matchIndex: 0,
+                    });
+                    seenPages.add(result.item.pageNum);
+                }
+            });
+        }
+
+        return results;
+    }, [searchQuery, pdfTextContent, fuse]);
+
+    // Handle search result click
+    const handleSearchResultClick = (result: SearchResult) => {
+        setIsSearchOpen(false);
+        setHighlightPage(result.pageNum);
+        setHighlightText(searchQuery);
+        scrollToPage(result.pageNum);
+        // Clear highlight after a few seconds
+        setTimeout(() => {
+            setHighlightPage(null);
+            setHighlightText('');
+        }, 3000);
+    };
+
+    // Focus search input when modal opens
+    useEffect(() => {
+        if (isSearchOpen && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [isSearchOpen]);
+
+    // Highlight matching text in the page
+    useEffect(() => {
+        if (!highlightPage || !highlightText) return;
+
+        const pageElement = document.getElementById(`pdf-page-${highlightPage}`);
+        if (!pageElement) return;
+
+        const textLayer = pageElement.querySelector('.react-pdf__Page__textContent');
+        if (!textLayer) return;
+
+        // Get all text spans
+        const spans = textLayer.querySelectorAll('span');
+        const query = highlightText.toLowerCase();
+
+        spans.forEach((span) => {
+            const text = span.textContent?.toLowerCase() || '';
+            if (text.includes(query)) {
+                // Add highlight background
+                (span as HTMLElement).style.background = 'rgba(255, 230, 0, 0.5)';
+                (span as HTMLElement).style.borderRadius = '2px';
+            }
+        });
+
+        // Clear highlights when state resets
+        return () => {
+            spans.forEach((span) => {
+                (span as HTMLElement).style.background = '';
+                (span as HTMLElement).style.borderRadius = '';
+            });
+        };
+    }, [highlightPage, highlightText]);
 
     const handleNextPage = () => {
         const newPage = Math.min(numPages, currentPage + 1);
@@ -197,14 +394,12 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
 
     const getScale = () => {
         if (zoomValue === 'fit') {
-            // Fit entire page in viewport - use height-based scaling
-            // Standard PDF page aspect ratio is ~8.5:11 (0.77)
-            // Calculate scale to fit height, with some padding
-            if (containerHeight > 0) {
-                const targetHeight = containerHeight - 20; // 20px padding
-                // Approximate page height at scale 1.0 is ~792px (11 inches * 72 DPI)
-                const scale = targetHeight / 792;
-                return Math.min(scale, 1.5); // Cap at 150% for very tall containers
+            // Fit page width in viewport - use width-based scaling
+            // Standard PDF page width at scale 1.0 is ~612px (8.5 inches * 72 DPI)
+            if (containerWidth > 0) {
+                const targetWidth = containerWidth - 40; // 40px padding for scrollbar and margins
+                const scale = targetWidth / 612;
+                return Math.min(scale, 2.0); // Cap at 200% for very wide containers
             }
             return 1.0;
         }
@@ -220,60 +415,89 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
         <div className="flex flex-col h-full bg-white" ref={containerRef}>
             {/* Custom Minimal Toolbar */}
             <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 flex-shrink-0">
-                {/* Left: Zoom Dropdown */}
-                <div className="relative min-w-[100px]" ref={zoomDropdownRef}>
+                {/* Left: Zoom Dropdown + Search */}
+                <div className="flex items-center gap-2">
+                    <div className="relative" ref={zoomDropdownRef}>
+                        <button
+                            onClick={() => setIsZoomDropdownOpen(!isZoomDropdownOpen)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                            <span>{getCurrentZoomLabel()}</span>
+                            <ChevronDown size={14} className={cn("transition-transform", isZoomDropdownOpen && "rotate-180")} />
+                        </button>
+
+                        {isZoomDropdownOpen && (
+                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[150px] z-50">
+                                {/* Custom zoom controls */}
+                                <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b border-gray-200 mb-1">
+                                    <button
+                                        onClick={handleZoomOut}
+                                        className="p-1 rounded hover:bg-gray-100 text-gray-600"
+                                        title="Zoom out"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                    <input
+                                        type="number"
+                                        min="25"
+                                        max="300"
+                                        value={zoomValue === 'fit' ? '' : Math.round(zoomValue * 100)}
+                                        placeholder="--"
+                                        onChange={handleCustomZoom}
+                                        className="w-12 px-1 py-0.5 text-sm text-center border border-gray-200 rounded focus:outline-none focus:border-[#0C115B]"
+                                    />
+                                    <span className="text-xs text-gray-500">%</span>
+                                    <button
+                                        onClick={handleZoomIn}
+                                        className="p-1 rounded hover:bg-gray-100 text-gray-600"
+                                        title="Zoom in"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+                                {/* Preset options */}
+                                {ZOOM_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.label}
+                                        onClick={() => handleZoomChange(option.value as 'fit' | number)}
+                                        className={cn(
+                                            "w-full px-3 py-1.5 text-sm text-left hover:bg-gray-100 transition-colors",
+                                            zoomValue === option.value ? "bg-gray-100 font-medium text-gray-900" : "text-gray-700"
+                                        )}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Search button */}
                     <button
-                        onClick={() => setIsZoomDropdownOpen(!isZoomDropdownOpen)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        onClick={() => setIsSearchOpen(true)}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title="Search in PDF (Ctrl+F)"
                     >
-                        <span>{getCurrentZoomLabel()}</span>
-                        <ChevronDown size={14} className={cn("transition-transform", isZoomDropdownOpen && "rotate-180")} />
+                        <Search size={18} />
                     </button>
 
-                    {isZoomDropdownOpen && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[150px] z-50">
-                            {/* Custom zoom controls */}
-                            <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b border-gray-200 mb-1">
-                                <button
-                                    onClick={handleZoomOut}
-                                    className="p-1 rounded hover:bg-gray-100 text-gray-600"
-                                    title="Zoom out"
-                                >
-                                    <Minus size={14} />
-                                </button>
-                                <input
-                                    type="number"
-                                    min="25"
-                                    max="300"
-                                    value={zoomValue === 'fit' ? '' : Math.round(zoomValue * 100)}
-                                    placeholder="--"
-                                    onChange={handleCustomZoom}
-                                    className="w-12 px-1 py-0.5 text-sm text-center border border-gray-200 rounded focus:outline-none focus:border-[#0C115B]"
-                                />
-                                <span className="text-xs text-gray-500">%</span>
-                                <button
-                                    onClick={handleZoomIn}
-                                    className="p-1 rounded hover:bg-gray-100 text-gray-600"
-                                    title="Zoom in"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                            </div>
-                            {/* Preset options */}
-                            {ZOOM_OPTIONS.map((option) => (
-                                <button
-                                    key={option.label}
-                                    onClick={() => handleZoomChange(option.value as 'fit' | number)}
-                                    className={cn(
-                                        "w-full px-3 py-1.5 text-sm text-left hover:bg-gray-100 transition-colors",
-                                        zoomValue === option.value ? "bg-gray-100 font-medium text-gray-900" : "text-gray-700"
-                                    )}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    {/* Rotate button */}
+                    <button
+                        onClick={() => setRotation(r => (r + 90) % 360)}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title="Rotate 90°"
+                    >
+                        <RotateCw size={18} />
+                    </button>
+
+                    {/* Dark mode toggle */}
+                    <button
+                        onClick={() => setIsDarkMode(d => !d)}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title={isDarkMode ? "Light mode" : "Dark mode"}
+                    >
+                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
                 </div>
 
                 {/* Center: Page Navigation */}
@@ -291,7 +515,28 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                     </button>
 
                     <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                        <span className="font-medium">{currentPage}</span>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={pageInputValue}
+                            onChange={(e) => setPageInputValue(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => {
+                                const value = parseInt(pageInputValue);
+                                if (!isNaN(value) && value >= 1 && value <= numPages) {
+                                    scrollToPage(value);
+                                } else {
+                                    setPageInputValue(String(currentPage));
+                                }
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    (e.target as HTMLInputElement).blur();
+                                }
+                            }}
+                            className="w-10 px-1 py-0.5 text-sm text-center font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#0C115B] bg-white"
+                        />
                         <span className="text-gray-400">/</span>
                         <span>{numPages}</span>
                     </div>
@@ -319,13 +564,23 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                     >
                         <Download size={18} />
                     </a>
+
+                    {/* Fullscreen toggle */}
+                    <button
+                        onClick={toggleFullscreen}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    </button>
                 </div>
             </div>
 
             {/* PDF Content */}
             <div
                 ref={contentRef}
-                className="flex-1 overflow-auto bg-white pdf-content"
+                className={cn("flex-1 overflow-auto pdf-content", isDarkMode ? "bg-gray-900" : "bg-white")}
+                style={{ filter: isDarkMode ? 'invert(1) hue-rotate(180deg)' : 'none' }}
             >
                 {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
@@ -364,6 +619,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                 pageNumber={index + 1}
                                 scale={getScale()}
                                 width={getWidth()}
+                                rotate={rotation}
                                 renderTextLayer={true}
                                 renderAnnotationLayer={true}
                                 loading={
@@ -423,6 +679,100 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                     background: #a8a8a8;
                 }
             `}</style>
+
+            {/* Search Modal */}
+            {isSearchOpen && (
+                <div className="absolute inset-0 bg-black/30 z-50 flex items-start justify-center pt-16">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+                        {/* Search header */}
+                        <div className="flex items-center gap-3 p-4 border-b border-gray-200">
+                            <Search size={20} className="text-gray-400 flex-shrink-0" />
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search in PDF..."
+                                className="flex-1 text-gray-900 placeholder-gray-400 outline-none text-base"
+                            />
+                            <button
+                                onClick={() => {
+                                    setIsSearchOpen(false);
+                                    setSearchQuery('');
+                                }}
+                                className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Search results */}
+                        <div className="max-h-80 overflow-y-auto">
+                            {searchQuery.trim() && searchResults.length === 0 && (
+                                <div className="p-4 text-center text-gray-500">
+                                    No results found for "{searchQuery}"
+                                </div>
+                            )}
+
+                            {searchResults.length > 0 && (
+                                <>
+                                    {/* Exact matches */}
+                                    {searchResults.filter(r => r.isExact).length > 0 && (
+                                        <div className="p-3 pb-0">
+                                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                                Exact Matches
+                                            </h3>
+                                            {searchResults.filter(r => r.isExact).map((result, i) => (
+                                                <button
+                                                    key={`exact-${i}`}
+                                                    onClick={() => handleSearchResultClick(result)}
+                                                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors mb-1"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="text-sm text-gray-700 line-clamp-2">{result.text}</p>
+                                                        <span className="flex-shrink-0 px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
+                                                            p. {result.pageNum}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Similar matches */}
+                                    {searchResults.filter(r => !r.isExact).length > 0 && (
+                                        <div className="p-3 pt-2">
+                                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                                Similar Matches
+                                            </h3>
+                                            {searchResults.filter(r => !r.isExact).map((result, i) => (
+                                                <button
+                                                    key={`similar-${i}`}
+                                                    onClick={() => handleSearchResultClick(result)}
+                                                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors mb-1"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="text-sm text-gray-600 line-clamp-2">{result.text}</p>
+                                                        <span className="flex-shrink-0 px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
+                                                            p. {result.pageNum}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {!searchQuery.trim() && (
+                                <div className="p-4 text-center text-gray-400 text-sm">
+                                    Type to search in this PDF
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

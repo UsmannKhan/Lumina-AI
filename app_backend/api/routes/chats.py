@@ -475,47 +475,52 @@ def create_chat_from_pdf(
 @router.get("/{chat_id}/pdf")
 def get_chat_pdf(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
     """Redirect to Supabase signed URL for PDF (accepts token via query param for embedding)"""
-    from ..config import SECRET_KEY, ALGORITHM
-    from jose import jwt, JWTError
-    
-    # Verify token from query param
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get('id')
-        if user_id is None:
+        from ..config import SECRET_KEY, ALGORITHM
+        from jose import jwt, JWTError
+        
+        # Verify token from query param
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id: int = payload.get('id')
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="Invalid token")
+        except JWTError:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    chat = db.query(models.Chat).filter(
-        models.Chat.id == chat_id,
-        models.Chat.user_id == user_id
-    ).first()
-    
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    
-    if chat.source_type != "pdf" or not chat.source_id:
-        raise HTTPException(status_code=404, detail="No PDF associated with this chat")
-    
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Storage not configured")
-    
-    # Generate signed URL (valid for 1 hour)
-    storage_path = f"{user_id}/{chat.source_id}.pdf"
-    try:
-        result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
-        signed_url = result.get("signedURL") or result.get("signedUrl")
-        if not signed_url:
-            raise HTTPException(status_code=404, detail="PDF file not found in storage")
+        
+        chat = db.query(models.Chat).filter(
+            models.Chat.id == chat_id,
+            models.Chat.user_id == user_id
+        ).first()
+        
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        if chat.source_type != "pdf" or not chat.source_id:
+            raise HTTPException(status_code=404, detail="No PDF associated with this chat")
+        
+        if not supabase:
+            raise HTTPException(status_code=500, detail="Storage not configured")
+        
+        # Generate signed URL (valid for 1 hour)
+        storage_path = f"{user_id}/{chat.source_id}.pdf"
+        try:
+            result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
+            signed_url = result.get("signedURL") or result.get("signedUrl")
+            if not signed_url:
+                raise HTTPException(status_code=404, detail="PDF file not found in storage")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get PDF: {str(e)}")
+        
+        # Redirect to the signed URL
+        return RedirectResponse(url=signed_url)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get PDF: {str(e)}")
-    
-    # Redirect to the signed URL
-    return RedirectResponse(url=signed_url)
+        import traceback
+        traceback.print_exc()  # prints full error to terminal
+        raise
 
 
 @router.get("/", response_model=List[schemas.ChatOut])

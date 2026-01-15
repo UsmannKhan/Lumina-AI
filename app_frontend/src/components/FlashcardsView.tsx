@@ -769,7 +769,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
         {/* Flashcard */}
         <div className="flex items-center justify-center py-4 2xl:py-6">
           <div className="w-full max-w-3xl">
-            {/* Main Card */}
+            {/* Main Card - 3D Flip Container */}
             <div
               onClick={() => {
                 if (showExplanation) {
@@ -778,129 +778,176 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
                   setIsFlipped(!isFlipped);
                 }
               }}
-              className={clsx(
-                "cursor-pointer transition-all duration-300 transform",
-                (isFlipped && !showExplanation) ? "scale-[0.98]" : "hover:scale-[1.02]"
-              )}
+              className="cursor-pointer flashcard-container"
             >
-              <div
-                className={clsx(
-                  "relative rounded-xl 2xl:rounded-2xl p-4 2xl:p-8 min-h-[320px] 2xl:min-h-[480px] flex flex-col transition-all duration-300",
-                  "border-2 shadow-xl",
-                  showExplanation
-                    ? "bg-white border-[#0C115B]/30"
-                    : isFlipped
-                      ? "bg-white border-[#0C115B]/20"
-                      : "bg-white border-gray-200"
-                )}
-              >
-                {/* Top row: Label, Difficulty, and Edit Mode Controls */}
-                <div className="flex items-center justify-between mb-3 2xl:mb-4">
-                  <div className="flex items-center gap-1.5 2xl:gap-2">
-                    <p className="text-[10px] 2xl:text-xs text-gray-500 uppercase tracking-wider">
-                      {showExplanation ? 'Explanation' : (isFlipped ? 'Answer' : 'Question')}
-                    </p>
-                    <span className={clsx(
-                      "px-1.5 2xl:px-2 py-0.5 2xl:py-1 rounded-full text-[10px] 2xl:text-xs font-medium border",
-                      difficultyColors[currentCard.difficulty]
-                    )}>
-                      {currentCard.difficulty}
-                    </span>
+              <div className={clsx(
+                "flashcard-inner relative",
+                isFlipped && "flipped"
+              )}>
+                {/* Front Face (Question) */}
+                <div
+                  className={clsx(
+                    "flashcard-face rounded-xl 2xl:rounded-2xl p-4 2xl:p-8 min-h-[320px] 2xl:min-h-[480px] flex flex-col",
+                    "border-2 shadow-xl bg-white border-gray-200"
+                  )}
+                >
+                  {/* Top row: Label, Difficulty, and Edit Mode Controls */}
+                  <div className="flex items-center justify-between mb-3 2xl:mb-4">
+                    <div className="flex items-center gap-1.5 2xl:gap-2">
+                      <p className="text-[10px] 2xl:text-xs text-gray-500 uppercase tracking-wider">
+                        Question
+                      </p>
+                      <span className={clsx(
+                        "px-1.5 2xl:px-2 py-0.5 2xl:py-1 rounded-full text-[10px] 2xl:text-xs font-medium border",
+                        difficultyColors[currentCard.difficulty]
+                      )}>
+                        {currentCard.difficulty}
+                      </span>
+                    </div>
+                    {/* Card controls - only in edit mode */}
+                    {isEditMode && currentCard && (
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => moveCard(currentIndex, 'up')}
+                          disabled={currentIndex === 0}
+                          className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Move up"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveCard(currentIndex, 'down')}
+                          disabled={currentIndex === flashcards.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Move down"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button
+                          onClick={() => startEditing(currentCard)}
+                          className="p-1 text-gray-400 hover:text-[#0C115B] transition-colors"
+                          title="Edit card"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        {deleteConfirmId === currentCard.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-red-400">Delete?</span>
+                            <button
+                              onClick={() => deleteCard(currentCard.id)}
+                              disabled={isSaving}
+                              className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="p-1 text-gray-400 hover:text-gray-800 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirmId(currentCard.id)}
+                            className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                            title="Delete card"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {/* Card controls - only in edit mode */}
-                  {isEditMode && currentCard && (
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => moveCard(currentIndex, 'up')}
-                        disabled={currentIndex === 0}
-                        className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="Move up"
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        onClick={() => moveCard(currentIndex, 'down')}
-                        disabled={currentIndex === flashcards.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="Move down"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button
-                        onClick={() => startEditing(currentCard)}
-                        className="p-1 text-gray-400 hover:text-[#0C115B] transition-colors"
-                        title="Edit card"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      {deleteConfirmId === currentCard.id ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-red-400">Delete?</span>
-                          <button
-                            onClick={() => deleteCard(currentCard.id)}
-                            disabled={isSaving}
-                            className="p-1 text-red-400 hover:text-red-300 transition-colors"
-                          >
-                            <Check size={14} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(null)}
-                            className="p-1 text-gray-400 hover:text-gray-800 transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirmId(currentCard.id)}
-                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-                          title="Delete card"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
 
-                {/* Content */}
-                <div className="flex-1 flex items-center justify-center">
-                  {showExplanation ? (
-                    <div className="text-center space-y-4">
-                      {currentCard.explanation && (
-                        <p className="text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
-                      )}
-                      {isYouTube && currentCard.timestamp && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTimestampClick(currentCard.timestamp!);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors text-xs"
-                          title="Jump to this moment in video"
-                        >
-                          {currentCard.timestamp}
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <p className={clsx(
-                      "text-center leading-relaxed",
-                      isFlipped ? "text-gray-700 text-lg" : "text-gray-800 text-xl font-medium"
-                    )}>
-                      {isFlipped ? currentCard.answer : currentCard.question}
+                  {/* Question Content */}
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-center leading-relaxed text-gray-800 text-xl font-medium">
+                      {currentCard.question}
                     </p>
-                  )}
+                  </div>
+
+                  {/* Bottom hint */}
+                  <p className="text-xs text-gray-600 text-center mt-4">
+                    Click to reveal answer
+                  </p>
                 </div>
 
-                {/* Bottom hint */}
-                <p className="text-xs text-gray-600 text-center mt-4">
-                  {showExplanation
-                    ? 'Click to go back to answer'
-                    : isFlipped
-                      ? 'Click to see question'
-                      : 'Click to reveal answer'}
-                </p>
+                {/* Back Face (Answer) */}
+                <div
+                  className={clsx(
+                    "flashcard-face flashcard-back absolute inset-0 rounded-xl 2xl:rounded-2xl p-4 2xl:p-8 min-h-[320px] 2xl:min-h-[480px] flex flex-col",
+                    "border-2 shadow-xl",
+                    showExplanation
+                      ? "bg-white border-[#0C115B]/30"
+                      : "bg-white border-[#0C115B]/20"
+                  )}
+                >
+                  {/* Top row */}
+                  <div className="flex items-center justify-between mb-3 2xl:mb-4">
+                    <div className="flex items-center gap-1.5 2xl:gap-2">
+                      <p className="text-[10px] 2xl:text-xs text-gray-500 uppercase tracking-wider">
+                        Answer
+                      </p>
+                      <span className={clsx(
+                        "px-1.5 2xl:px-2 py-0.5 2xl:py-1 rounded-full text-[10px] 2xl:text-xs font-medium border",
+                        difficultyColors[currentCard.difficulty]
+                      )}>
+                        {currentCard.difficulty}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Answer Content */}
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-center leading-relaxed text-gray-700 text-lg">
+                      {currentCard.answer}
+                    </p>
+                  </div>
+
+                  {/* Bottom hint */}
+                  <p className="text-xs text-gray-600 text-center mt-4">
+                    Click to see question
+                  </p>
+                </div>
+
+                {/* Explanation Overlay */}
+                {showExplanation && (
+                  <div
+                    className={clsx(
+                      "flashcard-back absolute inset-0 rounded-xl 2xl:rounded-2xl p-4 2xl:p-8 min-h-[320px] 2xl:min-h-[480px] flex flex-col",
+                      "border-2 shadow-xl bg-white border-[#0C115B]/30"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3 2xl:mb-4">
+                      <p className="text-[10px] 2xl:text-xs text-gray-500 uppercase tracking-wider">
+                        Explanation
+                      </p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center space-y-4">
+                        {currentCard.explanation && (
+                          <p className="text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
+                        )}
+                        {isYouTube && currentCard.timestamp && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTimestampClick(currentCard.timestamp!);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors text-xs"
+                            title="Jump to this moment in video"
+                          >
+                            {currentCard.timestamp}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 text-center mt-4">
+                      Click to go back to answer
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

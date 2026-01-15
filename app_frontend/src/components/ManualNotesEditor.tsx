@@ -11,6 +11,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { Link as LinkExtension } from '@tiptap/extension-link';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import TextAlign from '@tiptap/extension-text-align';
 import { common, createLowlight } from 'lowlight';
 import MathExtension from './MathExtension';
 import Image from '@tiptap/extension-image';
@@ -40,7 +41,10 @@ import {
     Code2,
     ChevronDown,
     Sigma,
-    ImageIcon
+    ImageIcon,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -139,6 +143,10 @@ export default function ManualNotesEditor({
                 HTMLAttributes: {
                     class: 'tiptap-image',
                 },
+            }),
+            // Text alignment
+            TextAlign.configure({
+                types: ['heading', 'paragraph'],
             }),
         ],
         content: initialContent || '',
@@ -270,6 +278,33 @@ export default function ManualNotesEditor({
                     title="Strikethrough"
                 >
                     <Strikethrough size={16} className="2xl:w-5 2xl:h-5" />
+                </ToolbarButton>
+
+                <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+                {/* Text Alignment */}
+                <ToolbarButton
+                    onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                    isActive={editor.isActive({ textAlign: 'left' })}
+                    title="Align Left"
+                >
+                    <AlignLeft size={16} className="2xl:w-5 2xl:h-5" />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                    isActive={editor.isActive({ textAlign: 'center' })}
+                    title="Align Center"
+                >
+                    <AlignCenter size={16} className="2xl:w-5 2xl:h-5" />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                    isActive={editor.isActive({ textAlign: 'right' })}
+                    title="Align Right"
+                >
+                    <AlignRight size={16} className="2xl:w-5 2xl:h-5" />
                 </ToolbarButton>
 
                 {/* Link Button with Popover */}

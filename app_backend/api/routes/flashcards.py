@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from ..rate_limit import limiter
 import json
 
 router = APIRouter(
@@ -244,9 +245,11 @@ def delete_flashcards(chat_id: int, user: user_dependency, db: Session = Depends
 
 
 @router.post("/{chat_id}/generate")
+@limiter.limit("10/hour")  # AI flashcard generation
 def generate_flashcards_with_options(
+    request: Request,
     chat_id: int, 
-    request: FlashcardGenerateRequest,
+    body: FlashcardGenerateRequest,
     user: user_dependency, 
     db: Session = Depends(get_db)
 ):
@@ -262,9 +265,9 @@ def generate_flashcards_with_options(
     
     # Get topic titles if topic_ids provided
     topics = None
-    if request.topic_ids:
+    if body.topic_ids:
         concepts = db.query(models.KeyConcept).filter(
-            models.KeyConcept.id.in_(request.topic_ids),
+            models.KeyConcept.id.in_(body.topic_ids),
             models.KeyConcept.chat_id == chat_id
         ).all()
         topics = [c.title for c in concepts]
@@ -275,15 +278,15 @@ def generate_flashcards_with_options(
             chat=chat,
             user_id=user['id'],
             db=db,
-            count=min(max(request.count, 5), 25),  # Clamp between 5-25
-            focus_prompt=request.focus_prompt,
+            count=min(max(body.count, 5), 25),  # Clamp between 5-25
+            focus_prompt=body.focus_prompt,
             topics=topics,
-            set_name=request.set_name
+            set_name=body.set_name
         )
         return {
             "chat_id": chat_id,
             "video_title": chat.session_name,
-            "set_name": request.set_name,
+            "set_name": body.set_name,
             "flashcards": [
                 {
                     "id": f.id,

@@ -203,7 +203,7 @@
 
 
 from typing import List
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session 
 from starlette import status
 from .. import models
@@ -212,6 +212,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from ..rate_limit import limiter
 from google.genai import types
 
 router = APIRouter(
@@ -340,7 +341,8 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
 
 
 @router.post("/")
-def create_message(message: schemas.CreateMessage, user: user_dependency, db: Session = Depends(get_db)):
+@limiter.limit("30/hour")  # AI chat messages - allow smooth chatting
+def create_message(request: Request, message: schemas.CreateMessage, user: user_dependency, db: Session = Depends(get_db)):
     
     # Get the chat and verify ownership
     chat = db.query(models.Chat).filter(

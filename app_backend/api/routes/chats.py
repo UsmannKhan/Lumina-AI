@@ -1,6 +1,7 @@
 from typing import List, Optional
-from fastapi import HTTPException, Depends, UploadFile, File, Form
+from fastapi import HTTPException, Depends, UploadFile, File, Form, Request
 from fastapi.responses import RedirectResponse
+from ..rate_limit import limiter
 from sqlalchemy.orm import Session 
 from starlette import status
 from .. import models
@@ -208,7 +209,9 @@ def get_transcript_data(video_url: str) -> dict:
 
 
 @router.post("/")
-def create_chat(chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")  # Expensive: fetches transcript + generates notes
+@limiter.limit("20/day")  # Daily cap to prevent abuse
+def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
     video_id = get_videoid(chat.youtube_link)
 
     print("Video ID:", video_id)
@@ -334,7 +337,10 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
 
 
 @router.post("/pdf")
+@limiter.limit("5/hour")  # Expensive: processes PDF + generates notes
+@limiter.limit("20/day")  # Daily cap to prevent abuse
 def create_chat_from_pdf(
+    request: Request,
     user: user_dependency,
     db: Session = Depends(get_db),
     file: UploadFile = File(...),

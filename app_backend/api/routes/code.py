@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from .. import models
@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from ..rate_limit import limiter
 import json
 from datetime import datetime
 
@@ -198,7 +199,9 @@ async def get_code_problems(
 
 
 @router.post("/{chat_id}/generate", response_model=CodeProblemsListResponse)
+@limiter.limit("5/hour")  # AI code problem generation
 async def generate_code_problems(
+    request: Request,
     chat_id: int,
     user: user_dependency,
     db: Session = Depends(get_db)
@@ -272,7 +275,9 @@ async def generate_code_problems(
 
 
 @router.post("/{chat_id}/evaluate", response_model=CodeEvaluationResponse)
+@limiter.limit("20/hour")  # AI code evaluation
 async def evaluate_code(
+    http_request: Request,
     chat_id: int,
     request: CodeEvaluateRequest,
     user: user_dependency,

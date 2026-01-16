@@ -1087,3 +1087,43 @@
   outline: 2px solid #0C115B;
   outline-offset: 2px;
 }
+
+/* ========================================
+   REDUCED MOTION PREFERENCES
+   Respects users with motion sensitivity
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable decorative animations completely */
+  .gradient-bg-auth {
+    animation: none;
+    background-position: 0% 50%;
+  }
+
+  .orb,
+  .orb-1,
+  .orb-2,
+  .orb-3 {
+    animation: none;
+  }
+
+  /* Keep flashcard flip functional but instant */
+  .flashcard-inner {
+    transition: none;
+  }
+
+  /* Disable hover lift effects */
+  .hover-lift:hover {
+    transform: none;
+  }
+}

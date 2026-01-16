@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Optimize barrel file imports for lucide-react (1500+ icons)
+    // This transforms `import { X } from 'lucide-react'` into direct imports at build time
+    experimental: {
+        optimizePackageImports: ['lucide-react'],
+    },
     images: {
         domains: ['img.youtube.com', 'i.ytimg.com'],
     },

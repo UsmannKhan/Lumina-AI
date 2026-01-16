@@ -129,6 +129,7 @@ export default function ChatSidebar({
         onClick={onToggleCollapse}
         className="fixed left-3 2xl:left-6 top-2 2xl:top-5 z-50 p-1.5 2xl:p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-white/40 transition-all"
         title="Show sidebar"
+        aria-label="Show sidebar"
       >
         <ChevronLeft className="w-4 h-4 2xl:w-5 2xl:h-5 rotate-180" />
       </button>
@@ -194,6 +195,7 @@ export default function ChatSidebar({
             onDeleteChat(chat.id);
           }}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
+          aria-label="Delete chat"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -238,6 +240,7 @@ export default function ChatSidebar({
             onClick={onToggleCollapse}
             className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-white/40 transition-colors"
             title="Hide sidebar"
+            aria-label="Hide sidebar"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -271,6 +274,7 @@ export default function ChatSidebar({
               onClick={() => setIsCreatingSpace(true)}
               className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-white/50 transition-colors"
               title="New Space"
+              aria-label="Create new space"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -299,6 +303,7 @@ export default function ChatSidebar({
                 onClick={handleCreateSpace}
                 className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-50"
                 disabled={isSubmittingSpace}
+                aria-label="Confirm create space"
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
@@ -308,6 +313,7 @@ export default function ChatSidebar({
                   setNewSpaceName('');
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
+                aria-label="Cancel create space"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -342,6 +348,7 @@ export default function ChatSidebar({
                         toggleSpaceExpanded(space.id);
                       }}
                       className="p-0.5"
+                      aria-label={isExpanded ? "Collapse space" : "Expand space"}
                     >
                       {isExpanded ? (
                         <FolderOpen className="w-4 h-4 text-[#0C115B]" />
@@ -386,6 +393,7 @@ export default function ChatSidebar({
                             setEditingSpaceName(space.name);
                           }}
                           className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-white/50"
+                          aria-label="Rename space"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -395,6 +403,7 @@ export default function ChatSidebar({
                             handleDeleteSpace(space.id, space.name);
                           }}
                           className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+                          aria-label="Delete space"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>

@@ -126,6 +126,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                   className="w-full pl-10 2xl:pl-12 pr-3 2xl:pr-4 py-2.5 2xl:py-3.5 rounded-lg 2xl:rounded-xl text-sm 2xl:text-base text-gray-800 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                   style={{
                     background: 'rgba(255, 255, 255, 0.5)',
@@ -147,6 +148,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                autoComplete="username"
                 className="w-full pl-10 2xl:pl-12 pr-3 2xl:pr-4 py-2.5 2xl:py-3.5 rounded-lg 2xl:rounded-xl text-sm 2xl:text-base text-gray-800 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                 style={{
                   background: 'rgba(255, 255, 255, 0.5)',
@@ -167,6 +169,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 className="w-full pl-10 2xl:pl-12 pr-3 2xl:pr-4 py-2.5 2xl:py-3.5 rounded-lg 2xl:rounded-xl text-sm 2xl:text-base text-gray-800 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                 style={{
                   background: 'rgba(255, 255, 255, 0.5)',

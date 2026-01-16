@@ -434,6 +434,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                         onClick={handleZoomOut}
                                         className="p-1 rounded hover:bg-gray-100 text-gray-600"
                                         title="Zoom out"
+                                        aria-label="Zoom out"
                                     >
                                         <Minus size={14} />
                                     </button>
@@ -451,6 +452,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                         onClick={handleZoomIn}
                                         className="p-1 rounded hover:bg-gray-100 text-gray-600"
                                         title="Zoom in"
+                                        aria-label="Zoom in"
                                     >
                                         <Plus size={14} />
                                     </button>
@@ -476,7 +478,8 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                     <button
                         onClick={() => setIsSearchOpen(true)}
                         className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                        title="Search in PDF (Ctrl+F)"
+                        title="Search in PDF"
+                        aria-label="Search in PDF"
                     >
                         <Search size={18} />
                     </button>
@@ -486,6 +489,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                         onClick={() => setRotation(r => (r + 90) % 360)}
                         className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title="Rotate 90°"
+                        aria-label="Rotate page 90 degrees"
                     >
                         <RotateCw size={18} />
                     </button>
@@ -495,6 +499,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                         onClick={() => setIsDarkMode(d => !d)}
                         className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title={isDarkMode ? "Light mode" : "Dark mode"}
+                        aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
                     >
                         {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
@@ -510,6 +515,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                             currentPage <= 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"
                         )}
                         title="Previous page"
+                        aria-label="Previous page"
                     >
                         <ChevronLeft size={18} />
                     </button>
@@ -549,6 +555,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                             currentPage >= numPages ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"
                         )}
                         title="Next page"
+                        aria-label="Next page"
                     >
                         <ChevronRight size={18} />
                     </button>
@@ -561,6 +568,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                         download
                         className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title="Download"
+                        aria-label="Download PDF"
                     >
                         <Download size={18} />
                     </a>
@@ -570,6 +578,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                         onClick={toggleFullscreen}
                         className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                     >
                         {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                     </button>
@@ -701,6 +710,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                     setSearchQuery('');
                                 }}
                                 className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                                aria-label="Close search"
                             >
                                 <X size={20} />
                             </button>

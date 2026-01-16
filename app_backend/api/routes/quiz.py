@@ -1,5 +1,5 @@
 from typing import List, Union, Optional
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from .. import models
@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from ..rate_limit import limiter
 import json
 
 router = APIRouter(
@@ -268,7 +269,9 @@ def get_quizzes(chat_id: int, user: user_dependency, db: Session = Depends(get_d
 
 
 @router.post("/{chat_id}/generate")
+@limiter.limit("10/hour")  # AI quiz generation
 def generate_quiz(
+    http_request: Request,
     chat_id: int, 
     request: QuizGenerateRequest,
     user: user_dependency, 
@@ -391,7 +394,8 @@ def generate_quiz(
 
 
 @router.post("/grade", response_model=schemas.GradeResponse)
-def grade_short_answer(request: schemas.GradeRequest, user: user_dependency):
+@limiter.limit("30/hour")  # AI grading - allow smooth quiz taking
+def grade_short_answer(http_request: Request, request: schemas.GradeRequest, user: user_dependency):
     """Grade a short answer response using AI"""
     
     try:

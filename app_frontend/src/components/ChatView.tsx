@@ -358,6 +358,7 @@ export default function ChatView({
             <button
               onClick={onToggleSidebar}
               className="lg:hidden p-2 rounded-lg hover:bg-white/40 text-gray-500"
+              aria-label="Toggle sidebar"
             >
               <Menu size={20} />
             </button>
@@ -516,6 +517,7 @@ export default function ChatView({
                   onClick={() => setIsVideoExpanded(!isVideoExpanded)}
                   className="absolute top-2 right-2 p-2 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
                   title={isVideoExpanded ? "Collapse video" : "Expand video"}
+                  aria-label={isVideoExpanded ? "Collapse video" : "Expand video"}
                 >
                   {isVideoExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </button>

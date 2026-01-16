@@ -206,13 +206,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="mt-4 2xl:mt-6 pt-4 2xl:pt-6 border-t border-white/30">
-          <div className="flex items-center justify-center gap-2 text-xs 2xl:text-sm text-gray-500">
-            <Sparkles className="w-3 h-3 2xl:w-4 2xl:h-4 text-indigo-500" />
-            <span>Powered by Gemini AI</span>
-          </div>
-        </div>
+
       </div>
     </div>
   );

@@ -1074,3 +1074,16 @@
 .flashcard-back {
   transform: rotateY(180deg);
 }
+
+/* Resizable Images in Tiptap Editor */
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.tiptap img.ProseMirror-selectednode {
+  outline: 2px solid #0C115B;
+  outline-offset: 2px;
+}

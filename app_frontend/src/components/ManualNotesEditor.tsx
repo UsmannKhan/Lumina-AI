@@ -14,7 +14,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { common, createLowlight } from 'lowlight';
 import MathExtension from './MathExtension';
-import Image from '@tiptap/extension-image';
+import ResizeImage from 'tiptap-extension-resize-image';
 import 'katex/dist/katex.min.css';
 import {
     Bold,
@@ -138,12 +138,8 @@ export default function ManualNotesEditor({
             }),
             // Math equations with KaTeX
             MathExtension,
-            // Images
-            Image.configure({
-                HTMLAttributes: {
-                    class: 'tiptap-image',
-                },
-            }),
+            // Resizable images - drag corners to resize
+            ResizeImage,
             // Text alignment
             TextAlign.configure({
                 types: ['heading', 'paragraph'],

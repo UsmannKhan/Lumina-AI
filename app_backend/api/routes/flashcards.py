@@ -25,7 +25,8 @@ class FlashcardGenerateRequest(BaseModel):
     set_name: str = None  # Name for this set of flashcards
 
 
-def get_flashcard_prompt(timed_transcript: str, count: int = 10, focus_prompt: str = None, topics: List[str] = None) -> str:
+def get_flashcard_prompt_youtube(content: str, count: int = 10, focus_prompt: str = None, topics: List[str] = None) -> str:
+    """Prompt for YouTube videos with timestamps"""
     topic_instruction = ""
     if topics:
         topic_instruction = f"\n- Focus on these specific topics: {', '.join(topics)}"
@@ -38,7 +39,7 @@ def get_flashcard_prompt(timed_transcript: str, count: int = 10, focus_prompt: s
 
 RULES:
 - Create exactly {count} flashcards
-- Questions should test understanding, not just recall
+- Questions should test understanding, not just recall.
 - Answers should be 1-3 sentences
 - Difficulty should be: easy, medium, or hard
 - Hints should be varied and helpful. Use different formats depending on the question like:
@@ -48,20 +49,53 @@ RULES:
   - Context clues: "Related to the aftermath of his father's death."
   - Category hints: "It's a type of sorting algorithm."
   Keep hints concise (under 15 words) but make them genuinely helpful for recalling the answer.
-- Explain why the answer is correct
-- Provide the exact timestamp in the video where the answer or the explanation can be found. The timestamps format is: 00:00
-- Look at the examples in the example format to understand the format and the instructions and also how the explanation should look like{topic_instruction}{focus_instruction}
+- Explanations should be clean prose explaining WHY the answer is correct. You can include timestamps in explanations but do not spam them.
+- Provide the exact timestamp where the concept is discussed. Format: MM:SS{topic_instruction}{focus_instruction}
 
 IMPORTANT: Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
 
 Example format:
 [
-  {{"question": "What was the actual condition of the Mongols shortly after Yesugei's death, contrasting with their future glory?", "answer": "They were not a rising power—many were slaves of the Jin Dynasty, Yesugei's family was abandoned, and the Mongols were a fragmented, subject people on the margins of Chinese power.", "difficulty": "easy", "hint": "Think about their status relative to Chinese dynasties at that time.", "timestamp": "02:15", "explanation": "After Yesugei's death, the Mongols were not a burgeoning power; many were common slaves of the Jin Dynasty, and Yesugei's family was abandoned by their clan. This period saw the Mongols as a fractured, subject people on the outskirts of Chinese power, far from the unified empire they would later become."}},
-  {{"question": "Why is binary search more efficient than linear search?", "answer": "Binary search eliminates half of the remaining elements with each comparison, resulting in O(log n) time complexity compared to O(n) for linear search.", "difficulty": "medium", "hint": "Consider what happens to the search space after each comparison.", "timestamp": "05:30", "explanation": "Binary search works by repeatedly dividing the sorted array in half, which means it only needs log₂(n) comparisons in the worst case."}}
+  {{"question": "What was the condition of the Mongols after Yesugei's death?", "answer": "They were not a rising power—many were slaves of the Jin Dynasty, Yesugei's family was abandoned, and the Mongols were a fragmented, subject people on the margins of Chinese power.", "difficulty": "easy", "hint": "Think about their status relative to Chinese dynasties at that time.", "timestamp": "02:15", "explanation": "After Yesugei's death, the Mongols were not a burgeoning power; many were common slaves of the Jin Dynasty, and Yesugei's family was abandoned by their clan. This period saw the Mongols as a fractured, subject people on the outskirts of Chinese power, far from the unified empire they would later become."}},
+  {{"question": "Why is binary search more efficient than linear search?", "answer": "Binary search eliminates half of remaining elements with each comparison, resulting in O(log n) time complexity.", "difficulty": "medium", "hint": "Consider what happens to the search space after each comparison.", "timestamp": "05:30", "explanation": "Binary search works by repeatedly dividing the sorted array in half, requiring only log₂(n) comparisons in the worst case, compared to n comparisons for linear search."}}
 ]
 
 TRANSCRIPT:
-{timed_transcript}
+{content}
+
+JSON ARRAY:"""
+
+
+def get_flashcard_prompt_pdf(content: str, count: int = 10, focus_prompt: str = None, topics: List[str] = None) -> str:
+    """Prompt for PDFs and text content (no timestamps)"""
+    topic_instruction = ""
+    if topics:
+        topic_instruction = f"\n- Focus on these specific topics: {', '.join(topics)}"
+    
+    focus_instruction = ""
+    if focus_prompt:
+        focus_instruction = f"\n- Special focus: {focus_prompt}"
+    
+    return f"""Analyze this document and create flashcards for the key concepts.
+
+RULES:
+- Create exactly {count} flashcards
+- Questions should test understanding, not just recall.
+- Answers should be 1-3 sentences
+- Difficulty should be: easy, medium, or hard
+- Hints should be varied and helpful (under 15 words)
+- Explanations should be clean prose explaining WHY the answer is correct.{topic_instruction}{focus_instruction}
+
+IMPORTANT: Return ONLY a valid JSON array. No markdown, no code blocks.
+
+Example format:
+[
+  {{"question": "What was the condition of the Mongols after Yesugei's death?", "answer": "They were a fragmented, subject people - many were slaves of the Jin Dynasty, and Yesugei's family was abandoned.", "difficulty": "easy", "hint": "Think about their status relative to Chinese dynasties.", "explanation": "After Yesugei's death, the Mongols were not a rising power. Many were common slaves of the Jin Dynasty, and the family was abandoned by their clan. They were a fractured people on the outskirts of Chinese power."}},
+  {{"question": "Why is binary search more efficient than linear search?", "answer": "Binary search eliminates half of remaining elements with each comparison, resulting in O(log n) time complexity.", "difficulty": "medium", "hint": "Consider what happens to the search space after each comparison.", "explanation": "Binary search works by repeatedly dividing the sorted array in half, requiring only log₂(n) comparisons in the worst case, compared to n comparisons for linear search."}}
+]
+
+DOCUMENT:
+{content}
 
 JSON ARRAY:"""
 
@@ -119,11 +153,19 @@ def generate_and_save_flashcards(
 ) -> List[models.Flashcard]:
     """Generate flashcards using AI and save to database"""
     
-    timed_transcript = chat.timed_content[:15000] if chat.timed_content else chat.source_content[:15000]
+    # Get content (use timed transcript for YouTube, source_content for others)
+    content = chat.timed_content[:15000] if chat.timed_content else chat.source_content[:15000]
+    
+    # Pick the right prompt based on source type
+    is_youtube = chat.source_type == 'youtube'
+    if is_youtube:
+        prompt = get_flashcard_prompt_youtube(content, count, focus_prompt, topics)
+    else:
+        prompt = get_flashcard_prompt_pdf(content, count, focus_prompt, topics)
     
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=get_flashcard_prompt(timed_transcript, count, focus_prompt, topics)
+        contents=prompt
     )
     
     flashcards_data = parse_flashcards_response(response.text)
@@ -137,7 +179,7 @@ def generate_and_save_flashcards(
             answer=card_data['answer'],
             difficulty=card_data['difficulty'],
             hint=card_data['hint'],
-            timestamp=card_data['timestamp'],
+            timestamp=card_data.get('timestamp', '') if is_youtube else '',  # No timestamps for PDFs
             explanation=card_data['explanation'],
             set_name=set_name
         )

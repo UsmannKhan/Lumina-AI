@@ -63,7 +63,7 @@ RULES:
 - MCQ should have 4 options with only 1 correct answer
 - True/False statements should be clear, not tricky
 - Short answer questions should require 1-3 sentence responses
-- All questions should be answerable from the transcript
+- All questions should be answerable from the content
 - Include brief explanations for MCQ and T/F answers
 - For short answer, include the ideal answer and 2-4 key points to look for
 - Never start with "According to the transcript" - use "Based on the content" or "According to the video" if needed.

@@ -79,6 +79,15 @@ export default function ChatView({
   // Check if this is a YouTube source
   const isYouTube = chat.source_type === 'youtube';
 
+  // Reset state when chat changes
+  useEffect(() => {
+    setManualNotesContent(chat.manual_notes || '');
+    setChatStyle(chat.chat_style as 'study' | 'conversational' | 'concise' | 'custom' || 'study');
+    setCustomInstructions(chat.custom_instructions || '');
+    setAttachedQuote(null);
+    setNotesSubTab('ai');
+  }, [chat.id]);
+
   // Instant scroll when switching to chat tab
   useEffect(() => {
     if (activeTab === 'chat') {

@@ -414,16 +414,16 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
     return (
         <div className="flex flex-col h-full bg-white" ref={containerRef}>
             {/* Custom Minimal Toolbar */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 flex-shrink-0">
-                {/* Left: Zoom Dropdown + Search */}
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-2 py-1 2xl:px-3 2xl:py-2 bg-white border-b border-gray-200 flex-shrink-0">
+                {/* Left: Zoom Dropdown + Search + Rotate */}
+                <div className="flex items-center gap-0.5 2xl:gap-1.5">
                     <div className="relative" ref={zoomDropdownRef}>
                         <button
                             onClick={() => setIsZoomDropdownOpen(!isZoomDropdownOpen)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            className="flex items-center gap-1 2xl:gap-1.5 px-2 py-1 2xl:px-3 2xl:py-1.5 rounded-lg text-xs 2xl:text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                         >
                             <span>{getCurrentZoomLabel()}</span>
-                            <ChevronDown size={14} className={cn("transition-transform", isZoomDropdownOpen && "rotate-180")} />
+                            <ChevronDown className={cn("w-3 h-3 2xl:w-3.5 2xl:h-3.5 transition-transform", isZoomDropdownOpen && "rotate-180")} />
                         </button>
 
                         {isZoomDropdownOpen && (
@@ -477,50 +477,40 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                     {/* Search button */}
                     <button
                         onClick={() => setIsSearchOpen(true)}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="p-1 2xl:p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title="Search in PDF"
                         aria-label="Search in PDF"
                     >
-                        <Search size={18} />
+                        <Search className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />
                     </button>
 
                     {/* Rotate button */}
                     <button
                         onClick={() => setRotation(r => (r + 90) % 360)}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="p-1 2xl:p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title="Rotate 90°"
                         aria-label="Rotate page 90 degrees"
                     >
-                        <RotateCw size={18} />
-                    </button>
-
-                    {/* Dark mode toggle */}
-                    <button
-                        onClick={() => setIsDarkMode(d => !d)}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                        title={isDarkMode ? "Light mode" : "Dark mode"}
-                        aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-                    >
-                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                        <RotateCw className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />
                     </button>
                 </div>
 
                 {/* Center: Page Navigation */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 2xl:gap-2">
                     <button
                         onClick={handlePrevPage}
                         disabled={currentPage <= 1}
                         className={cn(
-                            "p-1.5 rounded-lg transition-colors",
+                            "p-1 2xl:p-1.5 rounded-lg transition-colors",
                             currentPage <= 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"
                         )}
                         title="Previous page"
                         aria-label="Previous page"
                     >
-                        <ChevronLeft size={18} />
+                        <ChevronLeft className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />
                     </button>
 
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <div className="flex items-center gap-1 2xl:gap-1.5 text-xs 2xl:text-sm text-gray-600">
                         <input
                             type="text"
                             inputMode="numeric"
@@ -541,7 +531,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                     (e.target as HTMLInputElement).blur();
                                 }
                             }}
-                            className="w-10 px-1 py-0.5 text-sm text-center font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#0C115B] bg-white"
+                            className="w-7 2xl:w-10 px-1 py-0.5 text-xs 2xl:text-sm text-center font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#0C115B] bg-white"
                         />
                         <span className="text-gray-400">/</span>
                         <span>{numPages}</span>
@@ -551,36 +541,46 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                         onClick={handleNextPage}
                         disabled={currentPage >= numPages}
                         className={cn(
-                            "p-1.5 rounded-lg transition-colors",
+                            "p-1 2xl:p-1.5 rounded-lg transition-colors",
                             currentPage >= numPages ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"
                         )}
                         title="Next page"
                         aria-label="Next page"
                     >
-                        <ChevronRight size={18} />
+                        <ChevronRight className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />
                     </button>
                 </div>
 
-                {/* Right: Download */}
-                <div className="min-w-[100px] flex justify-end">
+                {/* Right: Dark mode + Download + Fullscreen */}
+                <div className="flex items-center justify-end gap-0.5 2xl:gap-1">
+                    {/* Dark mode toggle */}
+                    <button
+                        onClick={() => setIsDarkMode(d => !d)}
+                        className="p-1 2xl:p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title={isDarkMode ? "Light mode" : "Dark mode"}
+                        aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                    >
+                        {isDarkMode ? <Sun className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" /> : <Moon className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />}
+                    </button>
+
                     <a
                         href={pdfUrl}
                         download
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="p-1 2xl:p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title="Download"
                         aria-label="Download PDF"
                     >
-                        <Download size={18} />
+                        <Download className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />
                     </a>
 
                     {/* Fullscreen toggle */}
                     <button
                         onClick={toggleFullscreen}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="p-1 2xl:p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
                         aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                     >
-                        {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        {isFullscreen ? <Minimize2 className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" /> : <Maximize2 className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px]" />}
                     </button>
                 </div>
             </div>

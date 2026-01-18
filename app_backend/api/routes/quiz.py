@@ -52,7 +52,7 @@ def get_quiz_prompt(
     if difficulty != "mixed":
         difficulty_instruction = f"\nDIFFICULTY LEVEL: All questions should be {difficulty} difficulty.\n"
     
-    return f"""Analyze this video transcript and create a quiz with mixed question types.
+    return f"""Analyze this content and create a quiz with mixed question types.
 
 CREATE EXACTLY:
 - {mcq_count} multiple choice questions (MCQ)

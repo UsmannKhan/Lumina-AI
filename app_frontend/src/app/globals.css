@@ -442,7 +442,9 @@
    ======================================== */
 
 .markdown-content {
-  line-height: 1.8;
+  line-height: 1.7;
+  font-size: 0.9375rem;
+  /* 15px base for laptop */
 }
 
 .markdown-content h1,
@@ -450,27 +452,34 @@
 .markdown-content h3,
 .markdown-content h4 {
   font-weight: 600;
-  margin-top: 1.5em;
-  margin-bottom: 0.75em;
+  margin-top: 1.25em;
+  margin-bottom: 0.6em;
   color: var(--foreground);
 }
 
 .markdown-content h1 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
 }
 
 .markdown-content h2 {
-  font-size: 1.35rem;
+  font-size: 1.125rem;
 }
 
 .markdown-content h3 {
-  font-size: 1.15rem;
+  font-size: 1rem;
 }
 
-/* Larger screens get bigger markdown headings */
-@media (min-width: 1280px) {
+/* Larger screens (2xl = 1536px) get bigger markdown */
+@media (min-width: 1536px) {
+  .markdown-content {
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
   .markdown-content h1 {
     font-size: 1.75rem;
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
   }
 
   .markdown-content h2 {
@@ -483,18 +492,18 @@
 }
 
 .markdown-content p {
-  margin-bottom: 1em;
+  margin-bottom: 0.875em;
   color: var(--muted-foreground);
 }
 
 .markdown-content ul,
 .markdown-content ol {
-  margin-bottom: 1em;
-  padding-left: 1.5em;
+  margin-bottom: 0.875em;
+  padding-left: 1.25em;
 }
 
 .markdown-content li {
-  margin-bottom: 0.5em;
+  margin-bottom: 0.4em;
   color: var(--muted-foreground);
 }
 

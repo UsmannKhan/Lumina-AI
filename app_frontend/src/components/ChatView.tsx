@@ -25,6 +25,16 @@ const PdfViewer = dynamic(() => import('./PdfViewer'), {
   )
 });
 
+// Dynamic import for TextViewer
+const TextViewer = dynamic(() => import('./TextViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-gray-100">
+      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+    </div>
+  )
+});
+
 interface ChatViewProps {
   chat: Chat;
   messages: Message[];
@@ -496,6 +506,30 @@ export default function ChatView({
             </div>
           )}
 
+          {/* Text Viewer - Full height for TXT sources */}
+          {!isYouTube && (chat.source_type === 'txt' || chat.source_type === 'docx') && (
+            <div className="flex-1 flex flex-col min-h-0 relative">
+              <TextViewer
+                content={chat.source_content || ''}
+                fileName={chat.session_name}
+                onTextSelect={handleTextSelect}
+              />
+
+              {/* Selection Bubble Menu */}
+              {selectedText && selectionPosition && (
+                <SelectionBubbleMenu
+                  selectedText={selectedText}
+                  position={selectionPosition}
+                  onChat={handleChatWithSelection}
+                  onAddToNotes={handleAddToNotes}
+                  onExplain={handleExplain}
+                  onDefine={handleDefine}
+                  onClose={handleCloseSelection}
+                />
+              )}
+            </div>
+          )}
+
           {/* Video Section - Only for YouTube sources */}
           {isYouTube && transcriptMode !== 'full' && chat.source_id && (
             <div className="p-3 2xl:p-5 flex-shrink-0 transition-all duration-300">
@@ -738,7 +772,7 @@ export default function ChatView({
                         <Sparkles size={24} className="2xl:w-9 2xl:h-9 text-[#0C115B]" />
                       </div>
                       <h3 className="text-base 2xl:text-xl font-semibold text-gray-800 mb-1 2xl:mb-2">
-                        Ask anything about this video
+                        Ask anything
                       </h3>
                       <p className="text-sm 2xl:text-base text-gray-500 max-w-sm 2xl:max-w-md mx-auto">
                         I'm ready to answer your questions,

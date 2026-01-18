@@ -301,6 +301,8 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
     source_type_labels = {
         'video': 'video',
         'pdf': 'PDF document',
+        'txt': 'text document',
+        'docx': 'Word document',
         'youtube': 'video',
     }
     source_type_label = source_type_labels.get(source_type, 'content')

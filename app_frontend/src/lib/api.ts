@@ -130,6 +130,12 @@ class ApiClient {
     return `${API_BASE_URL}/chats/${chatId}/pdf?token=${token}`;
   }
 
+  getDocxUrl(chatId: number): string {
+    const token = this.getToken();
+    // Return URL with token as query param for DOCX download
+    return `${API_BASE_URL}/chats/${chatId}/docx?token=${token}`;
+  }
+
   async deleteChat(chatId: number): Promise<void> {
     await this.request(`/chats/${chatId}`, { method: 'DELETE' });
   }

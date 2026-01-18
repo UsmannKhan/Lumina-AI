@@ -158,7 +158,7 @@ export default function ChatSidebar({
             background: activeChat?.id === chat.id ? 'rgba(12, 17, 91, 0.1)' : 'rgba(255, 255, 255, 0.5)',
           }}
         >
-          {chat.source_type === 'pdf' ? (
+          {chat.source_type === 'pdf' || chat.source_type === 'txt' || chat.source_type === 'docx' ? (
             <FileText
               className={cn(
                 'w-3.5 h-3.5 2xl:w-5 2xl:h-5',

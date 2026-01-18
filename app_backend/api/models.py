@@ -89,6 +89,9 @@ class Chat(Base):
     custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Cached AI checks
+    is_cs_content = Column(Boolean, nullable=True)  # None=not checked, True/False=checked
+    
     # Relationships
     space = relationship("Space", back_populates="chats")
 

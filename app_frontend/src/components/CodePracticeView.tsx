@@ -174,7 +174,7 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
             <div className="flex-1 flex items-center justify-center p-6">
                 <div className="text-center">
                     <Loader2 className="w-8 h-8 animate-spin text-[#0C115B] mx-auto mb-4" />
-                    <p className="text-gray-400">Checking video content...</p>
+                    <p className="text-gray-400">Checking content...</p>
                 </div>
             </div>
         );
@@ -193,7 +193,7 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
                     </h3>
                     <p className="text-gray-400 text-sm">
                         Code Practice works best with programming tutorials, CS lectures, and
-                        software development content. This video doesn't appear to cover coding topics.
+                        software development content. This content doesn't appear to cover coding topics.
                     </p>
                 </div>
             </div>

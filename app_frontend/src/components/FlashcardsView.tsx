@@ -78,7 +78,12 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
         case ' ':
         case 'Enter':
           e.preventDefault();
-          setIsFlipped(f => !f);
+          // If showing explanation, hide it first (matches click behavior)
+          if (showExplanation) {
+            setShowExplanation(false);
+          } else {
+            setIsFlipped(f => !f);
+          }
           break;
         case 'ArrowRight':
         case 'j':
@@ -111,7 +116,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [flashcards.length, isFlipped]);
+  }, [flashcards.length, isFlipped, showExplanation]);
 
   const loadConceptsAndSets = async () => {
     setIsLoadingConfig(true);
@@ -862,7 +867,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
 
                   {/* Question Content */}
                   <div className="flex-1 flex items-center justify-center">
-                    <p className="text-center leading-relaxed text-gray-800 text-xl font-medium">
+                    <p className="text-center leading-relaxed text-gray-800 text-base 2xl:text-xl font-medium">
                       {currentCard.question}
                     </p>
                   </div>
@@ -900,7 +905,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
 
                   {/* Answer Content */}
                   <div className="flex-1 flex items-center justify-center">
-                    <p className="text-center leading-relaxed text-gray-700 text-lg">
+                    <p className="text-center leading-relaxed text-gray-700 text-base 2xl:text-lg">
                       {currentCard.answer}
                     </p>
                   </div>
@@ -927,7 +932,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
                     <div className="flex-1 flex items-center justify-center">
                       <div className="text-center space-y-4">
                         {currentCard.explanation && (
-                          <p className="text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
+                          <p className="text-sm 2xl:text-base text-gray-700 leading-relaxed">{currentCard.explanation}</p>
                         )}
                         {isYouTube && currentCard.timestamp && (
                           <button

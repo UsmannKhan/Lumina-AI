@@ -16,7 +16,7 @@ interface NewChatModalProps {
   activeSpaceId: number | null;
 }
 
-type TabType = 'youtube' | 'pdf';
+type TabType = 'youtube' | 'file';
 
 export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, spaces, activeSpaceId }: NewChatModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('youtube');
@@ -56,7 +56,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     setError('');
 
     if (!selectedFile) {
-      setError('Please select a PDF file');
+      setError('Please select a file');
       return;
     }
 
@@ -75,8 +75,9 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        setError('Only PDF files are allowed');
+      const ext = file.name.toLowerCase().split('.').pop();
+      if (!['pdf', 'txt', 'docx', 'pptx'].includes(ext || '')) {
+        setError('Only PDF, TXT, DOCX, and PPTX files are allowed');
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
@@ -101,11 +102,12 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        setError('Only PDF files are allowed');
+      const ext = file.name.toLowerCase().split('.').pop();
+      if (!['pdf', 'txt', 'docx', 'pptx'].includes(ext || '')) {
+        setError('Only PDF, TXT, DOCX, and PPTX files are allowed');
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
@@ -117,9 +119,9 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     }
   };
 
-  const loadingMessage = activeTab === 'youtube' 
-    ? 'Extracting transcript...' 
-    : 'Extracting text from PDF...';
+  const loadingMessage = activeTab === 'youtube'
+    ? 'Extracting transcript...'
+    : 'Extracting text from file...';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -172,16 +174,16 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
               </button>
               <button
                 type="button"
-                onClick={() => { setActiveTab('pdf'); setError(''); }}
+                onClick={() => { setActiveTab('file'); setError(''); }}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
-                  activeTab === 'pdf'
+                  activeTab === 'file'
                     ? "bg-primary/10 text-primary border border-primary/30"
                     : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
                 )}
               >
                 <FileText className="w-4 h-4" />
-                PDF
+                File
               </button>
             </div>
           </div>
@@ -264,8 +266,8 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
             </form>
           )}
 
-          {/* Body - PDF Tab */}
-          {activeTab === 'pdf' && (
+          {/* Body - File Tab */}
+          {activeTab === 'file' && (
             <form onSubmit={handlePdfSubmit} className="px-6 pb-6">
               {/* File Drop Zone */}
               <div
@@ -278,18 +280,18 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                   isDragging
                     ? "border-primary bg-primary/5"
                     : selectedFile
-                    ? "border-green-400 bg-green-50"
-                    : "border-gray-300 hover:border-primary/50 hover:bg-white/30"
+                      ? "border-green-400 bg-green-50"
+                      : "border-gray-300 hover:border-primary/50 hover:bg-white/30"
                 )}
               >
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.txt,.docx,.pptx"
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                
+
                 {selectedFile ? (
                   <div className="flex flex-col items-center">
                     <File className="w-12 h-12 text-green-500 mb-3" />
@@ -312,10 +314,10 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                   <div className="flex flex-col items-center">
                     <Upload className="w-12 h-12 text-gray-400 mb-3" />
                     <p className="text-sm font-medium text-foreground">
-                      Drop your PDF here or click to browse
+                      Drop your file here or click to browse
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Max file size: 10MB
+                      PDF, TXT, DOCX, PPTX • Max 5MB
                     </p>
                   </div>
                 )}
@@ -386,7 +388,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                   disabled={!selectedFile}
                   className="flex-1"
                 >
-                  {isLoading ? 'Analyzing...' : 'Analyze PDF'}
+                  {isLoading ? 'Analyzing...' : 'Analyze File'}
                 </Button>
               </div>
             </form>

@@ -352,7 +352,7 @@ export default function TranscriptView({
 
               <span className={clsx(
                 "flex-1 transition-colors leading-relaxed font-medium",
-                isExpanded ? "text-lg" : "text-base",
+                isExpanded ? "text-base 2xl:text-lg" : "text-sm 2xl:text-base",
                 activeIndex === index
                   ? "text-[#0C115B]"
                   : "text-gray-600 group-hover:text-gray-900"

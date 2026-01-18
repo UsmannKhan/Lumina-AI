@@ -180,9 +180,17 @@ async def get_code_problems(
             ))
         return CodeProblemsListResponse(is_cs_video=True, problems=result)
     
-    # No problems yet - check if CS video
+    # No problems yet - check cached is_cs_content first
+    if chat.is_cs_content is not None:
+        # Use cached value (instant!)
+        return CodeProblemsListResponse(is_cs_video=chat.is_cs_content, problems=[])
+    
+    # Not cached yet - check with AI
     transcript = chat.source_content or ""
     if not transcript:
+        # No content, cache as not CS
+        chat.is_cs_content = False
+        db.commit()
         return CodeProblemsListResponse(is_cs_video=False, problems=[])
     
     try:
@@ -191,10 +199,15 @@ async def get_code_problems(
             contents=get_cs_check_prompt(transcript)
         )
         is_cs = response.text.strip().lower() == "yes"
+        
+        # Cache the result for future requests
+        chat.is_cs_content = is_cs
+        db.commit()
+        
         return CodeProblemsListResponse(is_cs_video=is_cs, problems=[])
     except Exception as e:
         print(f"CS check error: {e}")
-        # Default to allowing code practice
+        # On error, don't cache - allow retry later
         return CodeProblemsListResponse(is_cs_video=True, problems=[])
 
 

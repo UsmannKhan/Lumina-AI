@@ -15,7 +15,12 @@ import json
 import os
 import fitz  # PyMuPDF
 import uuid
+import io
+import tempfile
+from docx import Document
 from supabase import create_client, Client
+import cloudmersive_convert_api_client
+from cloudmersive_convert_api_client.rest import ApiException
 
 # Supabase Storage client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -23,6 +28,13 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Use service key for storage 
 PDF_BUCKET = "pdfs"  # Bucket name in Supabase Storage
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+
+# Cloudmersive API client for document conversion
+CLOUDMERSIVE_API_KEY = os.getenv("CLOUDMERSIVE_API_KEY")
+cloudmersive_config = None
+if CLOUDMERSIVE_API_KEY:
+    cloudmersive_config = cloudmersive_convert_api_client.Configuration()
+    cloudmersive_config.api_key['Apikey'] = CLOUDMERSIVE_API_KEY
 
 router = APIRouter(
     prefix='/chats',
@@ -50,8 +62,9 @@ NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensiv
 - Keep it scannable and easy to read
 - Highlight important terms or concepts in bold
 - Do not start your response with opening phrases like "Here are comprehensive, well-structured notes from the YouTube video transcript:"
-- For the Key Concepts section, use this EXACT format for each concept:
-  - **[Concept Title]** (MM:SS - MM:SS): Brief one-line description
+- For the Key Concepts section, use this EXACT format for each concept on its own line:
+  - **ConceptName** (MM:SS - MM:SS): Brief one-line description
+- IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
 
 ## Transcript (with timestamps):
 {timed_transcript}
@@ -96,39 +109,46 @@ def parse_key_concepts(notes: str) -> list:
     print(f"DEBUG: Found Key Concepts section ({len(key_concepts_section)} chars):")
     print(key_concepts_section[:500])
     
-    # Pattern: Handles both:
-    # - **Title** (MM:SS - MM:SS): Description  (dash list)
-    # *   **Title** (MM:SS - MM:SS): Description  (asterisk list)
-    # The key is matching **Title** followed by timestamp and description
-    pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
+    # PATTERN 1: YouTube format with timestamps
+    # Format: - **ConceptName** (MM:SS - MM:SS): Description
+    # Handles both - and * list markers for robustness
+    timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
+    matches = re.findall(timestamp_pattern, key_concepts_section, re.DOTALL)
+    print(f"DEBUG: Found {len(matches)} matches with timestamp pattern (YouTube)")
     
-    matches = re.findall(pattern, key_concepts_section, re.DOTALL)
-    print(f"DEBUG: Found {len(matches)} matches with primary pattern")
-    
-    if not matches:
-        # Fallback: Even more flexible pattern for edge cases
-        alt_pattern = r'\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n.*?\*\*|\n\n|\Z)'
-        matches = re.findall(alt_pattern, key_concepts_section, re.DOTALL)
-        print(f"DEBUG: Found {len(matches)} matches with alt pattern")
-    
-    for match in matches:
-        title, start_str, end_str, description = match
-        
-        # Convert MM:SS to seconds
+    if matches:
+        # Convert MM:SS to seconds helper
         def time_to_seconds(time_str):
             parts = time_str.strip().split(':')
             if len(parts) == 2:
                 return int(parts[0]) * 60 + int(parts[1])
             return 0
         
-        concepts.append({
-            'title': title.strip(),
-            'description': description.strip(),
-            'start_time': time_to_seconds(start_str),
-            'end_time': time_to_seconds(end_str),
-            'importance': 2  # Default importance
-        })
-        print(f"DEBUG: Extracted concept: {title.strip()}")
+        for title, start_str, end_str, description in matches:
+            concepts.append({
+                'title': title.strip(),
+                'description': description.strip(),
+                'start_time': time_to_seconds(start_str),
+                'end_time': time_to_seconds(end_str),
+                'importance': 2
+            })
+            print(f"DEBUG: Extracted concept (YouTube): {title.strip()}")
+    else:
+        # PATTERN 2: PDF format without timestamps
+        # Format: - **ConceptName**: Description
+        no_timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
+        no_ts_matches = re.findall(no_timestamp_pattern, key_concepts_section, re.DOTALL)
+        print(f"DEBUG: Found {len(no_ts_matches)} matches with no-timestamp pattern (PDF)")
+        
+        for title, description in no_ts_matches:
+            concepts.append({
+                'title': title.strip(),
+                'description': description.strip(),
+                'start_time': None,
+                'end_time': None,
+                'importance': 2
+            })
+            print(f"DEBUG: Extracted concept (PDF): {title.strip()}")
     
     print(f"=== DEBUG: Parsed {len(concepts)} concepts ===\n")
     return concepts
@@ -313,8 +333,9 @@ PDF_NOTES_PROMPT = """Analyze this PDF document and provide comprehensive, detai
 - Keep it scannable and easy to read
 - Highlight important terms or concepts in bold
 - Do not start your response with opening phrases like "Here are comprehensive notes:"
-- For the Key Concepts section, use this EXACT format for each concept:
-  - **[Concept Title]**: Brief one-line description
+- For the Key Concepts section, use this EXACT format for each concept on its own line:
+  - **ConceptName**: Brief one-line description
+- IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
 
 ## Document Content:
 {content}
@@ -336,17 +357,76 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
     return "\n\n".join(text_parts)
 
 
-@router.post("/pdf")
-@limiter.limit("5/hour")  # Expensive: processes PDF + generates notes
+# Allowed file extensions for document uploads
+ALLOWED_FILE_EXTENSIONS = {'.pdf', '.txt', '.docx', '.pptx'}
+
+
+def convert_docx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
+    """Convert DOCX to PDF using Cloudmersive API"""
+    if not cloudmersive_config:
+        raise Exception("Cloudmersive API key not configured")
+    
+    api_client = cloudmersive_convert_api_client.ApiClient(cloudmersive_config)
+    api_instance = cloudmersive_convert_api_client.ConvertDocumentApi(api_client)
+    
+    # Write to temp file (Cloudmersive requires file path)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+        tmp.write(file_bytes)
+        tmp_path = tmp.name
+    
+    try:
+        result = api_instance.convert_document_docx_to_pdf(tmp_path)
+        # Result is a file path or bytes
+        if isinstance(result, str):
+            with open(result, 'rb') as f:
+                return f.read()
+        return result
+    finally:
+        os.unlink(tmp_path)
+
+
+def convert_pptx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
+    """Convert PPTX to PDF using Cloudmersive API"""
+    if not cloudmersive_config:
+        raise Exception("Cloudmersive API key not configured")
+    
+    api_client = cloudmersive_convert_api_client.ApiClient(cloudmersive_config)
+    api_instance = cloudmersive_convert_api_client.ConvertDocumentApi(api_client)
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pptx') as tmp:
+        tmp.write(file_bytes)
+        tmp_path = tmp.name
+    
+    try:
+        result = api_instance.convert_document_pptx_to_pdf(tmp_path)
+        
+        # Handle different response types
+        if isinstance(result, bytes):
+            return result
+        elif isinstance(result, str):
+            if os.path.exists(result):
+                with open(result, 'rb') as f:
+                    return f.read()
+            # Try encoding as bytes
+            return result.encode('latin-1')
+        elif hasattr(result, 'read'):
+            return result.read()
+        else:
+            raise Exception(f"Unknown result type: {type(result)}")
+    finally:
+        os.unlink(tmp_path)
+
+@router.post("/pdf")  # Keep endpoint path for backwards compatibility
+@limiter.limit("5/hour")  # Expensive: processes file + generates notes
 @limiter.limit("20/day")  # Daily cap to prevent abuse
-def create_chat_from_pdf(
+def create_chat_from_file(
     request: Request,
     user: user_dependency,
     db: Session = Depends(get_db),
     file: UploadFile = File(...),
     space_id: Optional[str] = Form(None),
 ):
-    """Create a new chat from an uploaded PDF file"""
+    """Create a new chat from an uploaded file (PDF or TXT)"""
     
     # Convert space_id from string to int if provided
     space_id_int: Optional[int] = None
@@ -356,40 +436,81 @@ def create_chat_from_pdf(
         except ValueError:
             pass
     
+    # Get file extension
+    filename = file.filename or ""
+    ext = ('.' + filename.lower().rsplit('.', 1)[-1]) if '.' in filename else ''
+    
     # Validate file type
-    if not file.filename.lower().endswith('.pdf'):
+    if ext not in ALLOWED_FILE_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are allowed"
+            detail=f"Unsupported file type. Allowed: {', '.join(ALLOWED_FILE_EXTENSIONS)}"
         )
     
     # Read file content
-    pdf_bytes = file.file.read()
+    file_bytes = file.file.read()
     
-    # Check file size (max 2MB)
-    if len(pdf_bytes) > 2 * 1024 * 1024:
+    # Check file size (max 5MB)
+    if len(file_bytes) > 5 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too large. Maximum size is 2MB"
+            detail="File too large. Maximum size is 5MB"
         )
     
-    # Extract text from PDF
-    try:
-        pdf_text = extract_pdf_text(pdf_bytes)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to extract text from PDF: {str(e)}"
-        )
+    # Extract text based on file type
+    if ext == '.pdf':
+        try:
+            file_text = extract_pdf_text(file_bytes)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to extract text from PDF: {str(e)}"
+            )
+        source_type = "pdf"
+    elif ext == '.txt':
+        try:
+            file_text = file_bytes.decode('utf-8', errors='ignore')
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to read text file: {str(e)}"
+            )
+        source_type = "txt"
+    elif ext == '.docx':
+        # Convert DOCX to PDF using Cloudmersive
+        try:
+            pdf_bytes = convert_docx_to_pdf(file_bytes, filename)
+            file_text = extract_pdf_text(pdf_bytes)
+            file_bytes = pdf_bytes  # Use converted PDF for storage
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to convert DOCX to PDF: {str(e)}"
+            )
+        source_type = "pdf"  # Stored as PDF
+    elif ext == '.pptx':
+        # Convert PPTX to PDF using Cloudmersive
+        try:
+            pdf_bytes = convert_pptx_to_pdf(file_bytes, filename)
+            file_text = extract_pdf_text(pdf_bytes)
+            file_bytes = pdf_bytes  # Use converted PDF for storage
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to convert PPTX to PDF: {str(e)}"
+            )
+        source_type = "pdf"  # Stored as PDF
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
     
-    if not pdf_text.strip():
+    if not file_text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No text could be extracted from the PDF. It may be a scanned document or image-based PDF."
+            detail="No text could be extracted from the file."
         )
     
     # Truncate if too long for the AI (keep first ~100k chars)
-    content_for_ai = pdf_text[:100000]
+    content_for_ai = file_text[:100000]
     
     # Generate notes using AI
     try:
@@ -404,38 +525,61 @@ def create_chat_from_pdf(
             detail=f"Failed to generate notes: {str(e)}"
         )
     
-    # Use filename as session name (without .pdf extension)
-    session_name = file.filename.rsplit('.', 1)[0] if file.filename else "Untitled PDF"
+    # Use filename as session name (without extension)
+    session_name = filename.rsplit('.', 1)[0] if filename else "Untitled File"
     
-    # Generate unique ID for this PDF (like YouTube video ID)
-    pdf_id = str(uuid.uuid4())
-    
-    # Upload PDF to Supabase Storage
-    if not supabase:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Storage not configured"
-        )
-    
-    try:
-        storage_path = f"{user['id']}/{pdf_id}.pdf"
-        supabase.storage.from_(PDF_BUCKET).upload(
-            path=storage_path,
-            file=pdf_bytes,
-            file_options={"content-type": "application/pdf"}
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload PDF: {str(e)}"
-        )
+    # For PDFs, upload to Supabase Storage for viewer
+    # For TXT, we just store the text content (no need for storage)
+    source_id = None
+    if source_type == "pdf":
+        if not supabase:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Storage not configured"
+            )
+        
+        pdf_id = str(uuid.uuid4())
+        try:
+            storage_path = f"{user['id']}/{pdf_id}.pdf"
+            supabase.storage.from_(PDF_BUCKET).upload(
+                path=storage_path,
+                file=file_bytes,
+                file_options={"content-type": "application/pdf"}
+            )
+            source_id = pdf_id
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload PDF: {str(e)}"
+            )
+    elif source_type == "docx":
+        if not supabase:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Storage not configured"
+            )
+        
+        docx_id = str(uuid.uuid4())
+        try:
+            storage_path = f"{user['id']}/{docx_id}.docx"
+            supabase.storage.from_(PDF_BUCKET).upload(
+                path=storage_path,
+                file=file_bytes,
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+            )
+            source_id = docx_id
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload DOCX: {str(e)}"
+            )
     
     # Create chat record
     new_chat = models.Chat(
-        source_type="pdf",
-        source_id=pdf_id,  # Store the UUID for retrieval (like YouTube video ID)
+        source_type=source_type,
+        source_id=source_id,  # UUID for PDFs, None for TXT
         source_url=None,
-        source_content=pdf_text,
+        source_content=file_text,
         timed_content=None,
         prompt=PDF_NOTES_PROMPT.format(content="[document content]"),
         notes=notes,
@@ -455,7 +599,7 @@ def create_chat_from_pdf(
             chat_id=new_chat.id,
             title=concept['title'],
             description=concept['description'],
-            start_time=None,  # No timestamps for PDFs
+            start_time=None,  # No timestamps for documents
             end_time=None,
             importance=concept['importance']
         )
@@ -471,9 +615,9 @@ def create_chat_from_pdf(
     return {
         "id": new_chat.id,
         "notes": notes,
-        "content": pdf_text,
+        "content": file_text,
         "session_name": session_name,
-        "source_type": "pdf",
+        "source_type": source_type,
         "key_concepts": saved_concepts
     }
 
@@ -528,6 +672,56 @@ def get_chat_pdf(chat_id: int, db: Session = Depends(get_db), token: Optional[st
         traceback.print_exc()  # prints full error to terminal
         raise
 
+
+@router.get("/{chat_id}/docx")
+def get_chat_docx(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
+    """Redirect to Supabase signed URL for DOCX (accepts token via query param for embedding)"""
+    try:
+        from ..config import SECRET_KEY, ALGORITHM
+        from jose import jwt, JWTError
+        
+        # Verify token from query param
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id: int = payload.get('id')
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="Invalid token")
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        chat = db.query(models.Chat).filter(
+            models.Chat.id == chat_id,
+            models.Chat.user_id == user_id
+        ).first()
+        
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        if chat.source_type != "docx" or not chat.source_id:
+            raise HTTPException(status_code=404, detail="No DOCX associated with this chat")
+        
+        if not supabase:
+            raise HTTPException(status_code=500, detail="Storage not configured")
+        
+        # Generate signed URL (valid for 1 hour)
+        storage_path = f"{user_id}/{chat.source_id}.docx"
+        try:
+            result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
+            signed_url = result.get("signedURL") or result.get("signedUrl")
+            if not signed_url:
+                raise HTTPException(status_code=404, detail="DOCX file not found in storage")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get DOCX: {str(e)}")
+        
+        # Redirect to the signed URL
+        return RedirectResponse(url=signed_url)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise
 
 @router.get("/", response_model=List[schemas.ChatOut])
 def get_user_chats(user: user_dependency, db: Session = Depends(get_db)):

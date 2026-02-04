@@ -17,10 +17,9 @@ import fitz  # PyMuPDF
 import uuid
 import io
 import tempfile
+import httpx
 from docx import Document
 from supabase import create_client, Client
-import cloudmersive_convert_api_client
-from cloudmersive_convert_api_client.rest import ApiException
 
 # Supabase Storage client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -29,12 +28,8 @@ PDF_BUCKET = "pdfs"  # Bucket name in Supabase Storage
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
-# Cloudmersive API client for document conversion
-CLOUDMERSIVE_API_KEY = os.getenv("CLOUDMERSIVE_API_KEY")
-cloudmersive_config = None
-if CLOUDMERSIVE_API_KEY:
-    cloudmersive_config = cloudmersive_convert_api_client.Configuration()
-    cloudmersive_config.api_key['Apikey'] = CLOUDMERSIVE_API_KEY
+# Gotenberg URL for document conversion
+GOTENBERG_URL = os.getenv("GOTENBERG_URL", "http://localhost:3000")
 
 router = APIRouter(
     prefix='/chats',
@@ -362,59 +357,33 @@ ALLOWED_FILE_EXTENSIONS = {'.pdf', '.txt', '.docx', '.pptx'}
 
 
 def convert_docx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
-    """Convert DOCX to PDF using Cloudmersive API"""
-    if not cloudmersive_config:
-        raise Exception("Cloudmersive API key not configured")
+    """Convert DOCX to PDF using Gotenberg"""
+    if not GOTENBERG_URL:
+        raise Exception("Gotenberg URL not configured")
     
-    api_client = cloudmersive_convert_api_client.ApiClient(cloudmersive_config)
-    api_instance = cloudmersive_convert_api_client.ConvertDocumentApi(api_client)
-    
-    # Write to temp file (Cloudmersive requires file path)
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-        tmp.write(file_bytes)
-        tmp_path = tmp.name
-    
-    try:
-        result = api_instance.convert_document_docx_to_pdf(tmp_path)
-        # Result is a file path or bytes
-        if isinstance(result, str):
-            with open(result, 'rb') as f:
-                return f.read()
-        return result
-    finally:
-        os.unlink(tmp_path)
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            f"{GOTENBERG_URL}/forms/libreoffice/convert",
+            files={"files": (filename, file_bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+        )
+        if response.status_code != 200:
+            raise Exception(f"Gotenberg conversion failed: {response.text}")
+        return response.content
 
 
 def convert_pptx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
-    """Convert PPTX to PDF using Cloudmersive API"""
-    if not cloudmersive_config:
-        raise Exception("Cloudmersive API key not configured")
+    """Convert PPTX to PDF using Gotenberg"""
+    if not GOTENBERG_URL:
+        raise Exception("Gotenberg URL not configured")
     
-    api_client = cloudmersive_convert_api_client.ApiClient(cloudmersive_config)
-    api_instance = cloudmersive_convert_api_client.ConvertDocumentApi(api_client)
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.pptx') as tmp:
-        tmp.write(file_bytes)
-        tmp_path = tmp.name
-    
-    try:
-        result = api_instance.convert_document_pptx_to_pdf(tmp_path)
-        
-        # Handle different response types
-        if isinstance(result, bytes):
-            return result
-        elif isinstance(result, str):
-            if os.path.exists(result):
-                with open(result, 'rb') as f:
-                    return f.read()
-            # Try encoding as bytes
-            return result.encode('latin-1')
-        elif hasattr(result, 'read'):
-            return result.read()
-        else:
-            raise Exception(f"Unknown result type: {type(result)}")
-    finally:
-        os.unlink(tmp_path)
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            f"{GOTENBERG_URL}/forms/libreoffice/convert",
+            files={"files": (filename, file_bytes, "application/vnd.openxmlformats-officedocument.presentationml.presentation")}
+        )
+        if response.status_code != 200:
+            raise Exception(f"Gotenberg conversion failed: {response.text}")
+        return response.content
 
 @router.post("/pdf")  # Keep endpoint path for backwards compatibility
 @limiter.limit("5/hour")  # Expensive: processes file + generates notes

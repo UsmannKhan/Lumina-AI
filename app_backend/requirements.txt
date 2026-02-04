@@ -14,4 +14,4 @@ PyMuPDF
 supabase
 slowapi
 python-docx
-cloudmersive-convert-api-client
+httpx

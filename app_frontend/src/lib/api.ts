@@ -97,6 +97,13 @@ class ApiClient {
     });
   }
 
+  async createWebsiteChat(url: string, spaceId?: number): Promise<CreateChatResponse> {
+    return this.request<CreateChatResponse>('/chats/website', {
+      method: 'POST',
+      body: JSON.stringify({ url, space_id: spaceId }),
+    });
+  }
+
   async uploadPdf(file: File, spaceId?: number): Promise<CreateChatResponse> {
     const formData = new FormData();
     formData.append('file', file);

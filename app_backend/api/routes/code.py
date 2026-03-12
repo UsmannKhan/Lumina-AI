@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from google.genai import types
 from ..rate_limit import limiter
 import json
 from datetime import datetime
@@ -195,8 +196,11 @@ async def get_code_problems(
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=get_cs_check_prompt(transcript)
+            model="gemini-3-flash-preview",
+            contents=get_cs_check_prompt(transcript),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="MINIMAL")
+            ),
         )
         is_cs = response.text.strip().lower() == "yes"
         
@@ -238,8 +242,11 @@ async def generate_code_problems(
     # Generate problems using AI
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=get_problems_prompt(transcript)
+            model="gemini-3-flash-preview",
+            contents=get_problems_prompt(transcript),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
         )
         
         response_text = response.text.strip()
@@ -319,8 +326,11 @@ async def evaluate_code(
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=get_evaluation_prompt(problem_dict, request.code, request.language)
+            model="gemini-3-flash-preview",
+            contents=get_evaluation_prompt(problem_dict, request.code, request.language),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
         )
         
         response_text = response.text.strip()

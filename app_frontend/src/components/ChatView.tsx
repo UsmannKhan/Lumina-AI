@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import { jsPDF } from 'jspdf';
 import { Chat, Message, TranscriptSegment } from '@/types';
 import { cn } from '@/lib/utils';
@@ -507,7 +507,7 @@ export default function ChatView({
           )}
 
           {/* Text Viewer - Full height for TXT sources */}
-          {!isYouTube && (chat.source_type === 'txt' || chat.source_type === 'docx') && (
+          {!isYouTube && (chat.source_type === 'txt' || chat.source_type === 'docx' || chat.source_type === 'website') && (
             <div className="flex-1 flex flex-col min-h-0 relative">
               <TextViewer
                 content={chat.source_content || ''}
@@ -719,7 +719,7 @@ export default function ChatView({
                       border: '1px solid rgba(0, 0, 0, 0.06)',
                     }}
                   >
-                    <ReactMarkdown>{chat.notes}</ReactMarkdown>
+                    <MarkdownRenderer content={chat.notes || ''} />
                   </div>
                 ) : (
                   <div
@@ -825,7 +825,7 @@ export default function ChatView({
                               border: '1px solid rgba(0, 0, 0, 0.04)',
                             }}
                           >
-                            <ReactMarkdown>{message.output}</ReactMarkdown>
+                            <MarkdownRenderer content={message.output || ''} className="prose" />
                           </div>
                         </div>
                       )}

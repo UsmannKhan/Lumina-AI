@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import { CodingProblem, CodeEvaluationResponse } from '@/types';
 import { api } from '@/lib/api';
 import Button from './Button';
@@ -463,9 +463,7 @@ export default function CodePracticeView({ chatId }: CodePracticeViewProps) {
                                 {/* Expanded content */}
                                 {isFeedbackExpanded && (
                                     <div className="px-3 pb-3 overflow-y-auto max-h-32">
-                                        <div className="markdown-content prose prose-sm max-w-none">
-                                            <ReactMarkdown>{evaluation.feedback}</ReactMarkdown>
-                                        </div>
+                                        <MarkdownRenderer content={evaluation.feedback || ''} className="prose prose-sm" />
                                         {evaluation.suggestions.length > 0 && (
                                             <div className="mt-3">
                                                 <h4 className="text-xs text-gray-500 uppercase mb-2">Suggestions</h4>

@@ -9,6 +9,10 @@ class CreateChat(BaseModel):
     youtube_link: str
     space_id: Optional[int] = None  # Optional: assign to a space on creation
 
+class CreateWebsiteChat(BaseModel):
+    url: str
+    space_id: Optional[int] = None
+
 class ChatOut(BaseModel):
     id: int
     session_name: str

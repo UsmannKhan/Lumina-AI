@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { X, Youtube, Sparkles, FileText, Brain, MessageCircle, Lightbulb, Folder, Upload, File } from 'lucide-react';
+import { X, Youtube, Sparkles, FileText, Brain, MessageCircle, Lightbulb, Folder, Upload, File, Globe } from 'lucide-react';
 import Button from './Button';
 import Input from './Input';
 import { Space } from '@/types';
@@ -12,15 +12,17 @@ interface NewChatModalProps {
   onClose: () => void;
   onSubmitYoutube: (youtubeLink: string, spaceId?: number) => Promise<void>;
   onSubmitPdf: (file: File, spaceId?: number) => Promise<void>;
+  onSubmitWebsite: (url: string, spaceId?: number) => Promise<void>;
   spaces: Space[];
   activeSpaceId: number | null;
 }
 
-type TabType = 'youtube' | 'file';
+type TabType = 'youtube' | 'file' | 'website';
 
-export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, spaces, activeSpaceId }: NewChatModalProps) {
+export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, onSubmitWebsite, spaces, activeSpaceId }: NewChatModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('youtube');
   const [youtubeLink, setYoutubeLink] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | undefined>(activeSpaceId ?? undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +69,34 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to analyze PDF');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleWebsiteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      new URL(websiteUrl);
+    } catch {
+      setError('Please enter a valid URL (e.g., https://en.wikipedia.org/...)');
+      return;
+    }
+
+    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+      setError('URL must start with http:// or https://');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await onSubmitWebsite(websiteUrl, selectedSpaceId);
+      setWebsiteUrl('');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze website');
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +151,9 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
 
   const loadingMessage = activeTab === 'youtube'
     ? 'Extracting transcript...'
-    : 'Extracting text from file...';
+    : activeTab === 'website'
+      ? 'Fetching and analyzing website...'
+      : 'Extracting text from file...';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -184,6 +216,19 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
               >
                 <FileText className="w-4 h-4" />
                 File
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('website'); setError(''); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
+                  activeTab === 'website'
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
+                )}
+              >
+                <Globe className="w-4 h-4" />
+                Website
               </button>
             </div>
           </div>
@@ -389,6 +434,89 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                   className="flex-1"
                 >
                   {isLoading ? 'Analyzing...' : 'Analyze File'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Body - Website Tab */}
+          {activeTab === 'website' && (
+            <form onSubmit={handleWebsiteSubmit} className="px-6 pb-6">
+              <Input
+                placeholder="https://en.wikipedia.org/wiki/..."
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                error={error}
+                icon={<Globe className="w-5 h-5" />}
+                autoFocus
+              />
+
+              <p className="text-xs text-muted-foreground mt-2">
+                Wikipedia, ArXiv, blog posts, articles, and more
+              </p>
+
+              {/* Space selector */}
+              {spaces.length > 0 && (
+                <div className="mt-4">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Add to Space (optional)
+                  </label>
+                  <div className="relative">
+                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      value={selectedSpaceId ?? ''}
+                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
+                    >
+                      <option value="">No space</option>
+                      {spaces.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Features preview */}
+              <div className="mt-6 p-4 rounded-2xl glass">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                  What you'll get
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: FileText, label: 'Content Extract' },
+                    { icon: Brain, label: 'AI Analysis' },
+                    { icon: MessageCircle, label: 'Q&A Chat' },
+                    { icon: Lightbulb, label: 'Key Insights' },
+                  ].map((feature) => (
+                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
+                      <feature.icon className="w-4 h-4 text-primary" />
+                      <span>{feature.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isLoading}
+                  disabled={!websiteUrl.trim()}
+                  className="flex-1"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze Website'}
                 </Button>
               </div>
             </form>

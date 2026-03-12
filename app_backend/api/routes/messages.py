@@ -374,15 +374,22 @@ def create_message(request: Request, message: schemas.CreateMessage, user: user_
     
     prompt = get_chat_prompt(chat, message.input, conversation_history)
     
-    # Configure grounding with Google Search if enabled
-    config = None
+    # Configure generation with thinking
+    thinking = types.ThinkingConfig(thinking_level="LOW")
     if message.use_web_search:
         grounding_tool = types.Tool(google_search=types.GoogleSearch())
-        config = types.GenerateContentConfig(tools=[grounding_tool])
+        config = types.GenerateContentConfig(
+            tools=[grounding_tool],
+            thinking_config=thinking
+        )
+    else:
+        config = types.GenerateContentConfig(
+            thinking_config=thinking
+        )
     
     # Generate response
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3-flash-preview",
         contents=prompt,
         config=config
     )

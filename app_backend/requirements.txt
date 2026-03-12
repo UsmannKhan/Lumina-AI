@@ -15,3 +15,4 @@ supabase
 slowapi
 python-docx
 httpx
+beautifulsoup4

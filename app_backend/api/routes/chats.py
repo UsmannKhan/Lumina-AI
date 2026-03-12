@@ -10,6 +10,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from google.genai import types
 import requests
 import json
 import os
@@ -18,7 +19,9 @@ import uuid
 import io
 import tempfile
 import httpx
+from bs4 import BeautifulSoup
 from docx import Document
+from urllib.parse import urlparse
 from supabase import create_client, Client
 
 # Supabase Storage client
@@ -41,25 +44,39 @@ RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 
 # Prompts
-NOTES_PROMPT = """Analyze this YouTube video transcript and provide comprehensive, detailed, and well-structured notes.
+NOTES_PROMPT = """You are an expert study assistant. Analyze this YouTube video transcript and produce comprehensive, in-depth study notes.
 
-## Instructions:
-1. Start with a **Summary**
-2. List the **Key Takeaways** (main points the viewer should remember)
-3. Provide **Detailed Notes** organized by topic/section
-4. Include any **Action Items** or practical tips mentioned
-5. Note any **Resources/Links** mentioned (if any). This DOES NOT include unrelated sponsors of the video.
-6. DO NOT include any sponsors, promotional content, patreon links, or unrelated information in any section.
-7. End with a **Key Concepts** section listing all the main topics/concepts covered
+## Your Goal:
+Create the kind of notes a top student would take — thorough, well-organized, and genuinely useful for understanding and revising this material. Go deep on important topics, explain relationships between ideas, and don't just skim the surface.
+
+## Structure:
+- Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
+- Then create your own logical sections with descriptive headings based on what the content actually covers. Do NOT follow a generic template — adapt the structure to fit the material. For example:
+  - A coding tutorial might have sections like "Setup", "Core Implementation", "Edge Cases & Gotchas"
+  - A lecture on history might have chronological sections or thematic analysis
+  - A science video might have "Theory", "Experimental Method", "Results & Interpretation"
+- Go into detail. Explain the "why" behind things, not just the "what".
+- ALWAYS end with a **## Key Concepts** section (this is required for other features).
 
 ## Formatting:
-- Use clear headings
-- Keep it scannable and easy to read
-- Highlight important terms or concepts in bold
-- Do not start your response with opening phrases like "Here are comprehensive, well-structured notes from the YouTube video transcript:"
-- For the Key Concepts section, use this EXACT format for each concept on its own line:
+- Use clear ## headings to organize by topic
+- Highlight important terms in **bold**
+- Use tables for comparisons or structured data — include multiple tables if there are multiple things to compare and if its needed
+- Include Mermaid diagrams wherever they help understanding. Use ONLY these safe types: flowchart, graph, sequenceDiagram, classDiagram, mindmap. Always quote node labels containing special characters. Example:
+  ```mermaid
+  flowchart TD
+    A["Start"] --> B["Process"]
+    B --> C["End"]
+  ```
+- Use bullet points and numbered lists, only where appropriate, for clarity
+- Do NOT start with opening filler phrases like "Here are notes from the video:"
+- DO NOT include any sponsors, promotional content, patreon links, or unrelated information.
+
+## Key Concepts Section (REQUIRED — must be the LAST section):
+Use heading: ## Key Concepts
+Use this EXACT format for each concept on its own line:
   - **ConceptName** (MM:SS - MM:SS): Brief one-line description
-- IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
 
 ## Transcript (with timestamps):
 {timed_transcript}
@@ -82,6 +99,7 @@ def parse_key_concepts(notes: str) -> list:
     """
     Parse key concepts from the notes.
     Expected format: - **[Concept Title]** (MM:SS - MM:SS): Brief description
+    Or for PDF/website: - **[Concept Title]**: Brief description
     """
     import re
     
@@ -90,23 +108,37 @@ def parse_key_concepts(notes: str) -> list:
     print(f"\n=== DEBUG: Parsing key concepts ===")
     print(f"Notes length: {len(notes)}")
     
-    # Look for the Key Concepts section
-    key_concepts_match = re.search(r'##\s*Key Concepts.*?(?=##|\Z)', notes, re.DOTALL | re.IGNORECASE)
-    if not key_concepts_match:
-        print("DEBUG: No '## Key Concepts' section found in notes")
-        # Try alternative patterns
-        alt_match = re.search(r'\*\*Key Concepts\*\*.*?(?=\*\*[A-Z]|\Z)', notes, re.DOTALL | re.IGNORECASE)
-        if alt_match:
-            print(f"DEBUG: Found alt pattern '**Key Concepts**': {alt_match.group()[:200]}...")
+    # Look for the Key Concepts section — try multiple heading formats
+    key_concepts_section = None
+    
+    # Pattern 1: ## Key Concepts (markdown heading)
+    match = re.search(r'##\s*Key Concepts.*?(?=##|\Z)', notes, re.DOTALL | re.IGNORECASE)
+    if match:
+        key_concepts_section = match.group()
+        print(f"DEBUG: Found '## Key Concepts' section ({len(key_concepts_section)} chars)")
+    
+    # Pattern 2: **Key Concepts** (bold heading, no ##)
+    if not key_concepts_section:
+        match = re.search(r'\*\*Key Concepts\*\*\s*\n(.*?)(?=\n\s*\*\*[A-Z][^*]*\*\*\s*\n|\Z)', notes, re.DOTALL | re.IGNORECASE)
+        if match:
+            key_concepts_section = match.group()
+            print(f"DEBUG: Found '**Key Concepts**' section ({len(key_concepts_section)} chars)")
+    
+    # Pattern 3: "Key Concepts" as a line on its own (e.g., "Key Concepts\n")
+    if not key_concepts_section:
+        match = re.search(r'^Key Concepts\s*\n(.*?)(?=\n[A-Z].*\n[-=]|\Z)', notes, re.DOTALL | re.MULTILINE | re.IGNORECASE)
+        if match:
+            key_concepts_section = match.group()
+            print(f"DEBUG: Found 'Key Concepts' plain heading ({len(key_concepts_section)} chars)")
+    
+    if not key_concepts_section:
+        print("DEBUG: No Key Concepts section found in any format")
         return concepts
     
-    key_concepts_section = key_concepts_match.group()
-    print(f"DEBUG: Found Key Concepts section ({len(key_concepts_section)} chars):")
     print(key_concepts_section[:500])
     
     # PATTERN 1: YouTube format with timestamps
     # Format: - **ConceptName** (MM:SS - MM:SS): Description
-    # Handles both - and * list markers for robustness
     timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
     matches = re.findall(timestamp_pattern, key_concepts_section, re.DOTALL)
     print(f"DEBUG: Found {len(matches)} matches with timestamp pattern (YouTube)")
@@ -129,11 +161,11 @@ def parse_key_concepts(notes: str) -> list:
             })
             print(f"DEBUG: Extracted concept (YouTube): {title.strip()}")
     else:
-        # PATTERN 2: PDF format without timestamps
+        # PATTERN 2: PDF/website format without timestamps
         # Format: - **ConceptName**: Description
         no_timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
         no_ts_matches = re.findall(no_timestamp_pattern, key_concepts_section, re.DOTALL)
-        print(f"DEBUG: Found {len(no_ts_matches)} matches with no-timestamp pattern (PDF)")
+        print(f"DEBUG: Found {len(no_ts_matches)} matches with no-timestamp pattern (PDF/website)")
         
         for title, description in no_ts_matches:
             concepts.append({
@@ -253,8 +285,11 @@ def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependenc
 
     # Generate notes with improved prompt (using timed transcript)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3-flash-preview",
         contents=NOTES_PROMPT.format(timed_transcript=timed_transcript_text),
+        config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+        ),
     )
     notes = response.text
     
@@ -313,24 +348,38 @@ def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependenc
 
 
 # PDF Notes Prompt
-PDF_NOTES_PROMPT = """Analyze this PDF document and provide comprehensive, detailed, and well-structured notes.
+PDF_NOTES_PROMPT = """You are an expert study assistant. Analyze this document and produce comprehensive, in-depth study notes.
 
-## Instructions:
-1. Start with a **Summary** of the document
-2. List the **Key Takeaways** (main points the reader should remember)
-3. Provide **Detailed Notes** organized by topic/section
-4. Include any **Action Items** or practical tips mentioned
-5. Note any **Important Definitions** or terminology
-6. End with a **Key Concepts** section listing all the main topics/concepts covered
+## Your Goal:
+Create thorough, well-organized notes that fully capture the depth of this document. Go deep on important sections — explain methodology, analyze results, discuss implications. Don't just list surface-level bullet points.
+
+## Structure:
+- Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
+- Then create your own logical sections with descriptive headings that reflect the document's actual content. Do NOT follow a generic template — adapt the structure to fit the material. For example:
+  - A research paper might have: "Methodology", "Experimental Setup", "Results & Analysis", "Limitations & Future Work"
+  - A textbook chapter might have concept-by-concept deep dives
+  - A technical document might have "Architecture Overview", "Component Breakdown", "Integration Points"
+- Go into detail. Explain the reasoning, include specific numbers/data, discuss trade-offs.
+- ALWAYS end with a **## Key Concepts** section (this is required for other features).
 
 ## Formatting:
-- Use clear headings
-- Keep it scannable and easy to read
-- Highlight important terms or concepts in bold
-- Do not start your response with opening phrases like "Here are comprehensive notes:"
-- For the Key Concepts section, use this EXACT format for each concept on its own line:
+- Use clear ## headings to organize by topic
+- Highlight important terms in **bold**
+- Use tables for comparisons, structured data, or summarizing key points — include multiple tables if appropriate
+- Include Mermaid diagrams wherever they help understanding. Use ONLY these safe types: flowchart, graph, sequenceDiagram, classDiagram, mindmap. Always quote node labels containing special characters. Example:
+  ```mermaid
+  flowchart TD
+    A["Start"] --> B["Process"]
+    B --> C["End"]
+  ```
+- Use bullet points and numbered lists, only where appropriate, for clarity
+- Do NOT start with opening filler phrases like "Here are comprehensive notes:"
+
+## Key Concepts Section (REQUIRED — must be the LAST section):
+Use heading: ## Key Concepts
+Use this EXACT format for each concept on its own line:
   - **ConceptName**: Brief one-line description
-- IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
 
 ## Document Content:
 {content}
@@ -479,13 +528,16 @@ def create_chat_from_file(
         )
     
     # Truncate if too long for the AI (keep first ~100k chars)
-    content_for_ai = file_text[:100000]
+    content_for_ai = file_text[:500000]
     
     # Generate notes using AI
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
         )
         notes = response.text
     except Exception as e:
@@ -569,6 +621,250 @@ def create_chat_from_file(
             title=concept['title'],
             description=concept['description'],
             start_time=None,  # No timestamps for documents
+            end_time=None,
+            importance=concept['importance']
+        )
+        db.add(key_concept)
+        saved_concepts.append({
+            'title': concept['title'],
+            'description': concept['description']
+        })
+    
+    if concepts_data:
+        db.commit()
+    
+    return {
+        "id": new_chat.id,
+        "notes": notes,
+        "content": file_text,
+        "session_name": session_name,
+        "source_type": source_type,
+        "key_concepts": saved_concepts
+    }
+
+
+@router.post("/website")
+@limiter.limit("10/hour")
+@limiter.limit("30/day")
+def create_chat_from_website(
+    request: Request,
+    body: schemas.CreateWebsiteChat,
+    user: user_dependency,
+    db: Session = Depends(get_db),
+):
+    """Create a new chat from a website URL (Wikipedia, ArXiv, blog posts, etc.)"""
+    
+    url = body.url.strip()
+    
+    # Validate URL
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please enter a valid URL (must start with http:// or https://)"
+        )
+    
+    # ArXiv detection: if it's an ArXiv abstract page, get the PDF instead
+    is_arxiv_pdf = False
+    if 'arxiv.org' in parsed.netloc:
+        # Convert abstract URL to PDF URL
+        # e.g., https://arxiv.org/abs/2301.12345 → https://arxiv.org/pdf/2301.12345
+        if '/abs/' in url:
+            url = url.replace('/abs/', '/pdf/')
+        if '/pdf/' in url and not url.endswith('.pdf'):
+            url = url + '.pdf'
+        is_arxiv_pdf = True
+    
+    try:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as http_client:
+            response = http_client.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            })
+            response.raise_for_status()
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="The website took too long to respond. Please try again."
+        )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 403:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This website blocks automated access. Try a different URL or paste the content directly as a text file."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not access the website (HTTP {e.response.status_code})"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to fetch URL: {str(e)}"
+        )
+    
+    content_type = response.headers.get('content-type', '')
+    
+    # Handle ArXiv / PDF URLs
+    if is_arxiv_pdf or 'application/pdf' in content_type:
+        pdf_bytes = response.content
+        
+        if len(pdf_bytes) > 10 * 1024 * 1024:  # 10MB limit for PDFs
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF is too large (max 10MB)"
+            )
+        
+        try:
+            file_text = extract_pdf_text(pdf_bytes)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to extract text from PDF: {str(e)}"
+            )
+        
+        if not file_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No text could be extracted from this PDF"
+            )
+        
+        # Upload PDF to Supabase for PdfViewer
+        source_id = None
+        if supabase:
+            pdf_id = str(uuid.uuid4())
+            try:
+                storage_path = f"{user['id']}/{pdf_id}.pdf"
+                supabase.storage.from_(PDF_BUCKET).upload(
+                    path=storage_path,
+                    file=pdf_bytes,
+                    file_options={"content-type": "application/pdf"}
+                )
+                source_id = pdf_id
+            except Exception as e:
+                print(f"Warning: Failed to upload PDF to storage: {e}")
+        
+        source_type = "pdf"
+        content_for_ai = file_text[:500000]
+        
+        # Get title from PDF metadata or URL
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            session_name = doc.metadata.get('title', '').strip() if doc.metadata else ''
+            doc.close()
+        except:
+            session_name = ''
+        
+        if not session_name:
+            # For ArXiv, fetch the title from the abstract page
+            if 'arxiv.org' in body.url:
+                try:
+                    # Extract paper ID from URL
+                    arxiv_id = body.url.rstrip('/').split('/')[-1]
+                    abs_url = f"https://arxiv.org/abs/{arxiv_id}"
+                    with httpx.Client(timeout=10.0, follow_redirects=True) as title_client:
+                        title_resp = title_client.get(abs_url, headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        })
+                        if title_resp.status_code == 200:
+                            title_soup = BeautifulSoup(title_resp.text, 'html.parser')
+                            title_tag = title_soup.find('meta', {'name': 'citation_title'})
+                            if title_tag and title_tag.get('content'):
+                                session_name = title_tag['content'].strip()
+                            else:
+                                h1 = title_soup.find('h1', class_='title')
+                                if h1:
+                                    session_name = h1.get_text(strip=True).replace('Title:', '').strip()
+                except Exception as e:
+                    print(f"Warning: Could not fetch ArXiv title: {e}")
+            
+            if not session_name:
+                session_name = parsed.netloc
+    
+    else:
+        # HTML website: extract text
+        html = response.text
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Get page title
+        title_tag = soup.find('title')
+        session_name = title_tag.get_text(strip=True) if title_tag else parsed.netloc
+        # Truncate long titles
+        if len(session_name) > 100:
+            session_name = session_name[:97] + '...'
+        
+        # Remove non-content elements
+        for tag in soup.find_all(['script', 'style', 'nav', 'footer', 'header', 
+                                   'aside', 'iframe', 'noscript', 'form']):
+            tag.decompose()
+        
+        # Try to find main content area
+        main_content = (
+            soup.find('article') or
+            soup.find('main') or
+            soup.find('div', {'id': 'content'}) or
+            soup.find('div', {'id': 'mw-content-text'}) or  # Wikipedia
+            soup.find('div', {'class': 'entry-content'}) or  # WordPress
+            soup.body or
+            soup
+        )
+        
+        # Extract text
+        file_text = main_content.get_text(separator='\n', strip=True)
+        
+        if not file_text or len(file_text) < 50:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not extract meaningful content from this website"
+            )
+        
+        source_type = "website"
+        source_id = None
+        content_for_ai = file_text[:500000]
+    
+    # Generate notes using AI
+    try:
+        ai_response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
+        )
+        notes = ai_response.text
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate notes: {str(e)}"
+        )
+    
+    # Create chat record
+    new_chat = models.Chat(
+        source_type=source_type,
+        source_id=source_id,
+        source_url=body.url,
+        source_content=file_text,
+        timed_content=None,
+        prompt=PDF_NOTES_PROMPT.format(content="[website content]"),
+        notes=notes,
+        user_id=user['id'],
+        space_id=body.space_id,
+        session_name=session_name
+    )
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+    
+    # Parse and save key concepts
+    concepts_data = parse_key_concepts(notes)
+    saved_concepts = []
+    for concept in concepts_data:
+        key_concept = models.KeyConcept(
+            chat_id=new_chat.id,
+            title=concept['title'],
+            description=concept['description'],
+            start_time=None,
             end_time=None,
             importance=concept['importance']
         )

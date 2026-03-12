@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from google.genai import types
 from ..rate_limit import limiter
 import json
 
@@ -300,7 +301,7 @@ def generate_quiz(
         
         # Generate quiz with AI
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=get_quiz_prompt(
                 transcript,
                 mcq_count=request.mcq_count,
@@ -309,7 +310,10 @@ def generate_quiz(
                 difficulty=request.difficulty,
                 topics=topics,
                 focus_prompt=request.focus_prompt
-            )
+            ),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="MEDIUM")
+            ),
         )
         
         questions = parse_quiz_response(response.text)
@@ -400,13 +404,16 @@ def grade_short_answer(http_request: Request, request: schemas.GradeRequest, use
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=get_grading_prompt(
                 request.question,
                 request.ideal_answer,
                 request.key_points,
                 request.user_answer
-            )
+            ),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="LOW")
+            ),
         )
         
         result = parse_grade_response(response.text)

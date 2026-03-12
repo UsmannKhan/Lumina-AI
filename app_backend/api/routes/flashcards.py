@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
+from google.genai import types
 from ..rate_limit import limiter
 import json
 
@@ -165,8 +166,11 @@ def generate_and_save_flashcards(
         prompt = get_flashcard_prompt_pdf(content, count, focus_prompt, topics)
     
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
+        model="gemini-3-flash-preview",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_level="MEDIUM")
+        ),
     )
     
     flashcards_data = parse_flashcards_response(response.text)

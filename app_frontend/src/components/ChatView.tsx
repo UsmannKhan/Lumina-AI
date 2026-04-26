@@ -507,13 +507,46 @@ export default function ChatView({
           )}
 
           {/* Text Viewer - Full height for TXT sources */}
-          {!isYouTube && (chat.source_type === 'txt' || chat.source_type === 'docx' || chat.source_type === 'website') && (
+          {!isYouTube && (chat.source_type === 'txt' || chat.source_type === 'website') && (
             <div className="flex-1 flex flex-col min-h-0 relative">
               <TextViewer
                 content={chat.source_content || ''}
                 fileName={chat.session_name}
                 onTextSelect={handleTextSelect}
               />
+
+              {/* Selection Bubble Menu */}
+              {selectedText && selectionPosition && (
+                <SelectionBubbleMenu
+                  selectedText={selectedText}
+                  position={selectionPosition}
+                  onChat={handleChatWithSelection}
+                  onAddToNotes={handleAddToNotes}
+                  onExplain={handleExplain}
+                  onDefine={handleDefine}
+                  onClose={handleCloseSelection}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Audio Player + Transcript Viewer */}
+          {!isYouTube && chat.source_type === 'audio' && (
+            <div className="flex-1 flex flex-col min-h-0 relative">
+              <div className="p-3 flex-shrink-0 border-b border-black/5 dark:border-white/5">
+                <audio
+                  controls
+                  className="w-full rounded-lg"
+                  src={api.getAudioUrl(chat.id)}
+                />
+              </div>
+              <div className="flex-1 min-h-0">
+                <TextViewer
+                  content={chat.source_content || ''}
+                  fileName={chat.session_name}
+                  onTextSelect={handleTextSelect}
+                />
+              </div>
 
               {/* Selection Bubble Menu */}
               {selectedText && selectionPosition && (

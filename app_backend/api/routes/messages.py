@@ -304,6 +304,8 @@ def get_chat_prompt(chat, question: str, conversation_history: str) -> str:
         'txt': 'text document',
         'docx': 'Word document',
         'youtube': 'video',
+        'audio': 'audio recording',
+        'website': 'website article',
     }
     source_type_label = source_type_labels.get(source_type, 'content')
     source_type_label_cap = source_type_label.capitalize() if source_type_label != 'PDF document' else 'PDF Document'

@@ -20,7 +20,6 @@ import io
 import tempfile
 import httpx
 from bs4 import BeautifulSoup
-from docx import Document
 from urllib.parse import urlparse
 from supabase import create_client, Client
 
@@ -386,6 +385,48 @@ IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). D
 """
 
 
+# PDF Vision Notes Prompt — used when sending the raw PDF inline to Gemini
+PDF_VISION_NOTES_PROMPT = """You are an expert study assistant. You have been given a PDF document that you can see in full — including all text, figures, charts, diagrams, tables, and equations.
+
+## Your Goal:
+Create thorough, well-organized notes that fully capture the depth of this document. Go deep on important sections — explain methodology, analyze results, discuss implications. Don't just list surface-level bullet points.
+
+Pay special attention to visual content:
+- **Figures & Charts**: Describe what each figure or chart shows and the key insight or trend it conveys. Reference the figure number or caption when available.
+- **Tables**: Summarise the data — highlight key comparisons, best results, or notable patterns. Don't just say "a table is present."
+- **Diagrams & Flowcharts**: Explain the process or architecture they depict.
+- **Equations**: Explain what each important equation represents in context, not just its mathematical form.
+
+## Structure:
+- Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
+- Then create your own logical sections with descriptive headings that reflect the document's actual content. Do NOT follow a generic template — adapt the structure to fit the material. For example:
+  - A research paper might have: "Methodology", "Experimental Setup", "Results & Analysis", "Limitations & Future Work"
+  - A textbook chapter might have concept-by-concept deep dives
+  - A technical document might have "Architecture Overview", "Component Breakdown", "Integration Points"
+- Go into detail. Explain the reasoning, include specific numbers/data, discuss trade-offs.
+- ALWAYS end with a **## Key Concepts** section (this is required for other features).
+
+## Formatting:
+- Use clear ## headings to organize by topic
+- Highlight important terms in **bold**
+- Use tables for comparisons, structured data, or summarizing key points — include multiple tables if appropriate
+- Include Mermaid diagrams wherever they help understanding. Use ONLY these safe types: flowchart, graph, sequenceDiagram, classDiagram, mindmap. Always quote node labels containing special characters. Example:
+  ```mermaid
+  flowchart TD
+    A["Start"] --> B["Process"]
+    B --> C["End"]
+  ```
+- Use bullet points and numbered lists, only where appropriate, for clarity
+- Do NOT start with opening filler phrases like "Here are comprehensive notes:"
+
+## Key Concepts Section (REQUIRED — must be the LAST section):
+Use heading: ## Key Concepts
+Use this EXACT format for each concept on its own line:
+  - **ConceptName**: Brief one-line description
+IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+"""
+
+
 def extract_pdf_text(pdf_bytes: bytes) -> str:
     """Extract text from PDF using PyMuPDF"""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -403,6 +444,56 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
 
 # Allowed file extensions for document uploads
 ALLOWED_FILE_EXTENSIONS = {'.pdf', '.txt', '.docx', '.pptx'}
+
+# Audio support
+AUDIO_MIME_TYPES = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.ogg': 'audio/ogg',
+    '.webm': 'audio/webm',
+    '.flac': 'audio/flac',
+}
+ALLOWED_AUDIO_EXTENSIONS = set(AUDIO_MIME_TYPES.keys())
+
+AUDIO_NOTES_PROMPT = """You are an expert study assistant. You have been given an audio recording of a lecture, podcast, or presentation.
+
+Provide TWO things, separated EXACTLY by the delimiter ---NOTES_SEPARATOR--- on its own line:
+
+PART 1 — TRANSCRIPT:
+Provide a full, accurate transcript of the audio. Format it with timestamps where possible:
+[MM:SS] Spoken text for this segment...
+[MM:SS] Next segment...
+
+Group into natural paragraphs or speaker turns. If you cannot determine exact timestamps, still provide the full transcript text grouped into logical paragraphs.
+
+---NOTES_SEPARATOR---
+
+PART 2 — STUDY NOTES:
+Create thorough, well-organized study notes based on the audio content.
+
+## Your Goal:
+Create the kind of notes a top student would take — thorough, well-organized, and genuinely useful for understanding and revising this material. Go deep on important topics, explain relationships between ideas.
+
+## Structure:
+- Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
+- Then create your own logical sections with descriptive headings based on what the content actually covers.
+- Go into detail. Explain the "why" behind things, not just the "what".
+- ALWAYS end with a **## Key Concepts** section.
+
+## Formatting:
+- Use clear ## headings to organize by topic
+- Highlight important terms in **bold**
+- Use tables for comparisons or structured data
+- Include Mermaid diagrams wherever they help understanding. Use ONLY these safe types: flowchart, graph, sequenceDiagram, classDiagram, mindmap. Always quote node labels containing special characters.
+- Use bullet points and numbered lists, only where appropriate, for clarity
+
+## Key Concepts Section (REQUIRED — must be the LAST section):
+Use heading: ## Key Concepts
+Use this EXACT format for each concept on its own line:
+  - **ConceptName**: Brief one-line description
+IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+"""
 
 
 def convert_docx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
@@ -433,6 +524,30 @@ def convert_pptx_to_pdf(file_bytes: bytes, filename: str) -> bytes:
         if response.status_code != 200:
             raise Exception(f"Gotenberg conversion failed: {response.text}")
         return response.content
+
+def generate_notes_from_pdf(pdf_bytes: bytes, display_name: str, fallback_text: str) -> str:
+    """Generate notes from PDF with vision. Falls back to text-only on failure."""
+    try:
+        pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[pdf_part, PDF_VISION_NOTES_PROMPT],
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
+        )
+        return response.text
+    except Exception as e:
+        print(f"Warning: PDF vision failed ({e}), falling back to text-only")
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=PDF_NOTES_PROMPT.format(content=fallback_text),
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
+        )
+        return response.text
+
 
 @router.post("/pdf")  # Keep endpoint path for backwards compatibility
 @limiter.limit("5/hour")  # Expensive: processes file + generates notes
@@ -530,24 +645,29 @@ def create_chat_from_file(
     # Truncate if too long for the AI (keep first ~100k chars)
     content_for_ai = file_text[:500000]
     
+    # Use filename as session name (without extension)
+    session_name = filename.rsplit('.', 1)[0] if filename else "Untitled File"
+
     # Generate notes using AI
     try:
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
-            ),
-        )
-        notes = response.text
+        if source_type == "pdf":
+            # PDF vision — Gemini sees text + figures/charts/tables
+            notes = generate_notes_from_pdf(file_bytes, session_name, content_for_ai)
+        else:
+            # TXT files — text only
+            response = client.models.generate_content(
+                model="gemini-3-flash-preview",
+                contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+                ),
+            )
+            notes = response.text
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate notes: {str(e)}"
         )
-    
-    # Use filename as session name (without extension)
-    session_name = filename.rsplit('.', 1)[0] if filename else "Untitled File"
     
     # For PDFs, upload to Supabase Storage for viewer
     # For TXT, we just store the text content (no need for storage)
@@ -573,28 +693,7 @@ def create_chat_from_file(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to upload PDF: {str(e)}"
             )
-    elif source_type == "docx":
-        if not supabase:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Storage not configured"
-            )
-        
-        docx_id = str(uuid.uuid4())
-        try:
-            storage_path = f"{user['id']}/{docx_id}.docx"
-            supabase.storage.from_(PDF_BUCKET).upload(
-                path=storage_path,
-                file=file_bytes,
-                file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
-            )
-            source_id = docx_id
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload DOCX: {str(e)}"
-            )
-    
+
     # Create chat record
     new_chat = models.Chat(
         source_type=source_type,
@@ -705,7 +804,8 @@ def create_chat_from_website(
         )
     
     content_type = response.headers.get('content-type', '')
-    
+    pdf_bytes_for_vision = None
+
     # Handle ArXiv / PDF URLs
     if is_arxiv_pdf or 'application/pdf' in content_type:
         pdf_bytes = response.content
@@ -746,8 +846,9 @@ def create_chat_from_website(
                 print(f"Warning: Failed to upload PDF to storage: {e}")
         
         source_type = "pdf"
+        pdf_bytes_for_vision = pdf_bytes
         content_for_ai = file_text[:500000]
-        
+
         # Get title from PDF metadata or URL
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -825,14 +926,19 @@ def create_chat_from_website(
     
     # Generate notes using AI
     try:
-        ai_response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
-            ),
-        )
-        notes = ai_response.text
+        if pdf_bytes_for_vision is not None:
+            # PDF vision — Gemini sees text + figures/charts/tables
+            notes = generate_notes_from_pdf(pdf_bytes_for_vision, session_name, content_for_ai)
+        else:
+            # HTML website — text only
+            ai_response = client.models.generate_content(
+                model="gemini-3-flash-preview",
+                contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+                ),
+            )
+            notes = ai_response.text
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -887,6 +993,193 @@ def create_chat_from_website(
     }
 
 
+@router.post("/audio")
+@limiter.limit("5/hour")
+@limiter.limit("20/day")
+def create_chat_from_audio(
+    request: Request,
+    user: user_dependency,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    space_id: Optional[str] = Form(None),
+):
+    """Create a new chat from an uploaded audio file"""
+    
+    # Convert space_id from string to int if provided
+    space_id_int: Optional[int] = None
+    if space_id and space_id.strip():
+        try:
+            space_id_int = int(space_id)
+        except ValueError:
+            pass
+    
+    # Get file extension
+    filename = file.filename or ""
+    ext = ('.' + filename.lower().rsplit('.', 1)[-1]) if '.' in filename else ''
+    
+    # Validate file type
+    if ext not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported audio format. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
+        )
+    
+    # Read file content
+    audio_bytes = file.file.read()
+    
+    # Check file size (max 25MB)
+    if len(audio_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Audio file too large. Maximum size is 25MB"
+        )
+    
+    # Get MIME type
+    mime_type = AUDIO_MIME_TYPES[ext]
+    
+    # Send audio to Gemini for transcription + notes in one call
+    try:
+        audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[audio_part, AUDIO_NOTES_PROMPT],
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="HIGH")
+            ),
+        )
+        full_response = response.text
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process audio: {str(e)}"
+        )
+    
+    # Split response into transcript and notes
+    if "---NOTES_SEPARATOR---" in full_response:
+        parts = full_response.split("---NOTES_SEPARATOR---", 1)
+        transcript = parts[0].strip()
+        notes = parts[1].strip()
+    else:
+        # Fallback: treat entire response as notes, no separate transcript
+        transcript = ""
+        notes = full_response.strip()
+    
+    # Upload audio to Supabase storage
+    source_id = None
+    if supabase:
+        audio_id = str(uuid.uuid4())
+        try:
+            storage_path = f"{user['id']}/{audio_id}{ext}"
+            supabase.storage.from_(PDF_BUCKET).upload(
+                path=storage_path,
+                file=audio_bytes,
+                file_options={"content-type": mime_type}
+            )
+            source_id = audio_id
+        except Exception as e:
+            print(f"Warning: Failed to upload audio to storage: {e}")
+    
+    # Use filename as session name (without extension)
+    session_name = filename.rsplit('.', 1)[0] if filename else "Audio Recording"
+    
+    # Create chat record
+    new_chat = models.Chat(
+        source_type="audio",
+        source_id=source_id,
+        source_url=ext,  # Store extension for retrieval path construction
+        source_content=transcript,
+        timed_content=None,
+        prompt=AUDIO_NOTES_PROMPT,
+        notes=notes,
+        user_id=user['id'],
+        space_id=space_id_int,
+        session_name=session_name
+    )
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+    
+    # Parse and save key concepts
+    concepts_data = parse_key_concepts(notes)
+    saved_concepts = []
+    for concept in concepts_data:
+        key_concept = models.KeyConcept(
+            chat_id=new_chat.id,
+            title=concept['title'],
+            description=concept['description'],
+            start_time=None,
+            end_time=None,
+            importance=concept['importance']
+        )
+        db.add(key_concept)
+        saved_concepts.append({
+            'title': concept['title'],
+            'description': concept['description']
+        })
+    db.commit()
+    
+    print(f"\nSaved {len(saved_concepts)} key concepts")
+    
+    return {
+        "id": new_chat.id,
+        "notes": notes,
+        "session_name": session_name,
+        "source_type": "audio",
+        "key_concepts": saved_concepts
+    }
+
+
+@router.get("/{chat_id}/audio")
+def get_chat_audio(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
+    """Redirect to Supabase signed URL for audio file"""
+    try:
+        from ..config import SECRET_KEY, ALGORITHM
+        from jose import jwt, JWTError
+        
+        # Verify token from query param
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id: int = payload.get('id')
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="Invalid token")
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        chat = db.query(models.Chat).filter(
+            models.Chat.id == chat_id,
+            models.Chat.user_id == user_id
+        ).first()
+        
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        if chat.source_type != "audio" or not chat.source_id:
+            raise HTTPException(status_code=404, detail="No audio associated with this chat")
+        
+        if not supabase:
+            raise HTTPException(status_code=500, detail="Storage not configured")
+        
+        # Construct path using stored extension
+        ext = chat.source_url or ".mp3"
+        storage_path = f"{user_id}/{chat.source_id}{ext}"
+        try:
+            result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
+            signed_url = result.get("signedURL") or result.get("signedUrl")
+            if not signed_url:
+                raise HTTPException(status_code=404, detail="Audio file not found in storage")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get audio: {str(e)}")
+        
+        return RedirectResponse(url=signed_url)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise
+
+
 @router.get("/{chat_id}/pdf")
 def get_chat_pdf(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
     """Redirect to Supabase signed URL for PDF (accepts token via query param for embedding)"""
@@ -938,56 +1231,6 @@ def get_chat_pdf(chat_id: int, db: Session = Depends(get_db), token: Optional[st
         raise
 
 
-@router.get("/{chat_id}/docx")
-def get_chat_docx(chat_id: int, db: Session = Depends(get_db), token: Optional[str] = None):
-    """Redirect to Supabase signed URL for DOCX (accepts token via query param for embedding)"""
-    try:
-        from ..config import SECRET_KEY, ALGORITHM
-        from jose import jwt, JWTError
-        
-        # Verify token from query param
-        if not token:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id: int = payload.get('id')
-            if user_id is None:
-                raise HTTPException(status_code=401, detail="Invalid token")
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        chat = db.query(models.Chat).filter(
-            models.Chat.id == chat_id,
-            models.Chat.user_id == user_id
-        ).first()
-        
-        if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
-        
-        if chat.source_type != "docx" or not chat.source_id:
-            raise HTTPException(status_code=404, detail="No DOCX associated with this chat")
-        
-        if not supabase:
-            raise HTTPException(status_code=500, detail="Storage not configured")
-        
-        # Generate signed URL (valid for 1 hour)
-        storage_path = f"{user_id}/{chat.source_id}.docx"
-        try:
-            result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
-            signed_url = result.get("signedURL") or result.get("signedUrl")
-            if not signed_url:
-                raise HTTPException(status_code=404, detail="DOCX file not found in storage")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get DOCX: {str(e)}")
-        
-        # Redirect to the signed URL
-        return RedirectResponse(url=signed_url)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise
-
 @router.get("/", response_model=List[schemas.ChatOut])
 def get_user_chats(user: user_dependency, db: Session = Depends(get_db)):
     chats = db.query(models.Chat).filter(models.Chat.user_id == user['id']).all()
@@ -1015,6 +1258,15 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
         except Exception as e:
             # Log error but continue with deletion
             print(f"Warning: Failed to delete PDF from storage: {e}")
+    
+    # Delete audio from Supabase storage if this is an audio chat
+    if chat.source_type == "audio" and chat.source_id and supabase:
+        try:
+            ext = chat.source_url or ".mp3"
+            storage_path = f"{user['id']}/{chat.source_id}{ext}"
+            supabase.storage.from_(PDF_BUCKET).remove([storage_path])
+        except Exception as e:
+            print(f"Warning: Failed to delete audio from storage: {e}")
     
     # Delete all messages associated with this chat
     db.query(models.Message).filter(

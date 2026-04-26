@@ -137,10 +137,36 @@ class ApiClient {
     return `${API_BASE_URL}/chats/${chatId}/pdf?token=${token}`;
   }
 
-  getDocxUrl(chatId: number): string {
+  async uploadAudio(file: File, spaceId?: number): Promise<CreateChatResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (spaceId) {
+      formData.append('space_id', spaceId.toString());
+    }
+
     const token = this.getToken();
-    // Return URL with token as query param for DOCX download
-    return `${API_BASE_URL}/chats/${chatId}/docx?token=${token}`;
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/chats/audio`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(error.detail || 'Upload failed');
+    }
+
+    return response.json();
+  }
+
+  getAudioUrl(chatId: number): string {
+    const token = this.getToken();
+    return `${API_BASE_URL}/chats/${chatId}/audio?token=${token}`;
   }
 
   async deleteChat(chatId: number): Promise<void> {

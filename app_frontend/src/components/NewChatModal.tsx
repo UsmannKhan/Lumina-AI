@@ -12,6 +12,7 @@ interface NewChatModalProps {
   onClose: () => void;
   onSubmitYoutube: (youtubeLink: string, spaceId?: number) => Promise<void>;
   onSubmitPdf: (file: File, spaceId?: number) => Promise<void>;
+  onSubmitAudio: (file: File, spaceId?: number) => Promise<void>;
   onSubmitWebsite: (url: string, spaceId?: number) => Promise<void>;
   spaces: Space[];
   activeSpaceId: number | null;
@@ -19,7 +20,7 @@ interface NewChatModalProps {
 
 type TabType = 'youtube' | 'file' | 'website';
 
-export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, onSubmitWebsite, spaces, activeSpaceId }: NewChatModalProps) {
+export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, onSubmitAudio, onSubmitWebsite, spaces, activeSpaceId }: NewChatModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('youtube');
   const [youtubeLink, setYoutubeLink] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -53,7 +54,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     }
   };
 
-  const handlePdfSubmit = async (e: React.FormEvent) => {
+  const handleFileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -62,13 +63,20 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
       return;
     }
 
+    const ext = selectedFile.name.toLowerCase().split('.').pop() || '';
+    const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext);
+
     setIsLoading(true);
     try {
-      await onSubmitPdf(selectedFile, selectedSpaceId);
+      if (isAudio) {
+        await onSubmitAudio(selectedFile, selectedSpaceId);
+      } else {
+        await onSubmitPdf(selectedFile, selectedSpaceId);
+      }
       setSelectedFile(null);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze PDF');
+      setError(err instanceof Error ? err.message : 'Failed to analyze file');
     } finally {
       setIsLoading(false);
     }
@@ -106,12 +114,15 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     const file = e.target.files?.[0];
     if (file) {
       const ext = file.name.toLowerCase().split('.').pop();
-      if (!['pdf', 'txt', 'docx', 'pptx'].includes(ext || '')) {
-        setError('Only PDF, TXT, DOCX, and PPTX files are allowed');
+      const allowedExts = ['pdf', 'txt', 'docx', 'pptx', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'];
+      if (!allowedExts.includes(ext || '')) {
+        setError('Unsupported file type. Allowed: PDF, TXT, DOCX, PPTX, MP3, WAV, M4A, OGG, WEBM, FLAC');
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File too large. Maximum size is 10MB');
+      const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext || '');
+      const maxSize = isAudio ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError(`File too large. Maximum size is ${isAudio ? '25MB' : '10MB'}`);
         return;
       }
       setSelectedFile(file);
@@ -136,12 +147,15 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     const file = e.dataTransfer.files?.[0];
     if (file) {
       const ext = file.name.toLowerCase().split('.').pop();
-      if (!['pdf', 'txt', 'docx', 'pptx'].includes(ext || '')) {
-        setError('Only PDF, TXT, DOCX, and PPTX files are allowed');
+      const allowedExts = ['pdf', 'txt', 'docx', 'pptx', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'];
+      if (!allowedExts.includes(ext || '')) {
+        setError('Unsupported file type');
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File too large. Maximum size is 10MB');
+      const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext || '');
+      const maxSize = isAudio ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError(`File too large. Maximum size is ${isAudio ? '25MB' : '10MB'}`);
         return;
       }
       setSelectedFile(file);
@@ -149,11 +163,17 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
     }
   };
 
+  const isAudioFile = selectedFile && ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(
+    selectedFile.name.toLowerCase().split('.').pop() || ''
+  );
+
   const loadingMessage = activeTab === 'youtube'
     ? 'Extracting transcript...'
     : activeTab === 'website'
       ? 'Fetching and analyzing website...'
-      : 'Extracting text from file...';
+      : isAudioFile
+        ? 'Transcribing and analyzing audio...'
+        : 'Extracting text from file...';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -313,7 +333,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
 
           {/* Body - File Tab */}
           {activeTab === 'file' && (
-            <form onSubmit={handlePdfSubmit} className="px-6 pb-6">
+            <form onSubmit={handleFileSubmit} className="px-6 pb-6">
               {/* File Drop Zone */}
               <div
                 onDragOver={handleDragOver}
@@ -332,7 +352,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt,.docx,.pptx"
+                  accept=".pdf,.txt,.docx,.pptx,.mp3,.wav,.m4a,.ogg,.webm,.flac"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -362,7 +382,7 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
                       Drop your file here or click to browse
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      PDF, TXT, DOCX, PPTX • Max 5MB
+                      PDF, TXT, DOCX, PPTX, MP3, WAV, M4A • Max 25MB
                     </p>
                   </div>
                 )}

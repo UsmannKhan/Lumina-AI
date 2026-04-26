@@ -116,6 +116,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleAudioSubmit = async (file: File, spaceId?: number) => {
+    const newChat = await api.uploadAudio(file, spaceId);
+
+    // Reload data to get full data
+    await loadData();
+
+    // Find and select the new chat
+    const fullChats = await api.getChats();
+    const createdChat = fullChats.find(c => c.id === newChat.id);
+    if (createdChat) {
+      setActiveChat(createdChat);
+      setActiveSpaceId(spaceId || null);
+    }
+  };
+
   const handleDeleteChat = async (chatId: number) => {
     await api.deleteChat(chatId);
 
@@ -304,6 +319,7 @@ export default function Dashboard() {
         onClose={() => setIsNewChatModalOpen(false)}
         onSubmitYoutube={handleCreateChat}
         onSubmitPdf={handleUploadPdf}
+        onSubmitAudio={handleAudioSubmit}
         onSubmitWebsite={handleWebsiteSubmit}
         spaces={spaces}
         activeSpaceId={activeSpaceId}

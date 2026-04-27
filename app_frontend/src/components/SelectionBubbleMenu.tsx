@@ -64,61 +64,98 @@ export default function SelectionBubbleMenu({
     const actions = [
         {
             icon: MessageSquare,
-            label: 'Chat',
+            label: 'Ask',
             onClick: () => { onChat(selectedText); onClose(); },
-            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: FileText,
-            label: 'Add to Notes',
+            label: 'Add to notes',
             onClick: () => { onAddToNotes(selectedText); onClose(); },
-            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: Lightbulb,
             label: 'Explain',
             onClick: () => { onExplain(selectedText); onClose(); },
-            color: 'text-gray-700 hover:bg-gray-100'
         },
         {
             icon: BookOpen,
             label: 'Define',
             onClick: () => { onDefine(selectedText); onClose(); },
-            color: 'text-gray-700 hover:bg-gray-100'
-        }
+        },
     ];
 
     return (
         <div
             ref={menuRef}
-            style={menuStyle}
-            className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{
+                ...menuStyle,
+                background: 'var(--lumina-surface)',
+                borderRadius: 12,
+                boxShadow:
+                    '0 12px 32px rgba(15,15,20,0.14), 0 0 0 1px rgba(15,15,20,0.06)',
+                overflow: 'hidden',
+                minWidth: 200,
+            }}
+            className={cn('animate-in fade-in zoom-in-95 duration-150')}
         >
-            {/* Header with selected text preview */}
-            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-xs text-gray-500 truncate max-w-[150px]">
-                    "{selectedText.length > 30 ? selectedText.slice(0, 30) + '...' : selectedText}"
+            <div
+                className="flex items-center justify-between"
+                style={{
+                    padding: '8px 10px',
+                    background: 'var(--lumina-surface-alt)',
+                    borderBottom: '1px solid var(--lumina-divider)',
+                }}
+            >
+                <span
+                    className="italic truncate"
+                    style={{
+                        fontSize: 11.5,
+                        color: 'var(--lumina-text-faint)',
+                        maxWidth: 150,
+                    }}
+                >
+                    “{selectedText.length > 30 ? selectedText.slice(0, 30) + '…' : selectedText}”
                 </span>
                 <button
                     onClick={onClose}
-                    className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="flex items-center justify-center"
+                    style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        background: 'transparent',
+                        color: 'var(--lumina-text-faint)',
+                        border: 'none',
+                    }}
                 >
-                    <X size={14} />
+                    <X size={12} />
                 </button>
             </div>
-
-            {/* Action buttons */}
-            <div className="p-1">
+            <div style={{ padding: 4 }}>
                 {actions.map((action) => (
                     <button
                         key={action.label}
                         onClick={action.onClick}
-                        className={cn(
-                            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                            action.color
-                        )}
+                        className="w-full flex items-center gap-2 transition-colors"
+                        style={{
+                            padding: '8px 10px',
+                            borderRadius: 8,
+                            border: 'none',
+                            background: 'transparent',
+                            color: 'var(--lumina-text-dim)',
+                            fontSize: 13,
+                            fontWeight: 500,
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'var(--lumina-surface-alt)';
+                            e.currentTarget.style.color = 'var(--lumina-text)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = 'var(--lumina-text-dim)';
+                        }}
                     >
-                        <action.icon size={16} />
+                        <action.icon size={14} />
                         <span>{action.label}</span>
                     </button>
                 ))}

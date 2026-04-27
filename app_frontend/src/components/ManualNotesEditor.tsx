@@ -128,7 +128,7 @@ export default function ManualNotesEditor({
             LinkExtension.configure({
                 openOnClick: false,
                 HTMLAttributes: {
-                    class: 'text-blue-600 underline hover:text-blue-800',
+                    class: 'text-[#007AFF] underline hover:text-[#0062cc]',
                 },
             }),
             // Code block with syntax highlighting

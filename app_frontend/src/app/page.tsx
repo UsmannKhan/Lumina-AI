@@ -8,12 +8,16 @@ import {
   ChatSidebar,
   ChatView,
   EmptyState,
+  LibraryView,
+  SpaceDetailView,
   NewChatModal,
   AuthPage,
 } from '@/components';
+import type { SourceKind } from '@/components/NewChatModal';
+import { Aperture } from '@/components/Logo';
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading: authLoading, login, register, logout } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, register, logout, username } = useAuth();
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -21,30 +25,42 @@ export default function Dashboard() {
   const [activeSpaceId, setActiveSpaceId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  // Optional source-type pre-selection for the new-chat modal.
+  const [initialModalKind, setInitialModalKind] = useState<SourceKind | null>(null);
 
-  // Track spaces being deleted to prevent them from reappearing on reload
+  const openNewChatModal = useCallback((kind?: SourceKind) => {
+    setInitialModalKind(kind ?? null);
+    setIsNewChatModalOpen(true);
+  }, []);
+  // Default to collapsed on small screens; expanded on lg+ (1024px)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+  });
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setIsSidebarCollapsed(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  // True when user has opened the Library view (overrides default empty state behavior)
+  const [showLibrary, setShowLibrary] = useState(false);
+  // The space whose detail page is currently visible. null means we are not
+  // on the space-detail screen.
+  const [viewingSpaceId, setViewingSpaceId] = useState<number | null>(null);
+
   const deletingSpaceIds = useRef<Set<number>>(new Set());
 
-  // Load chats and spaces when authenticated
   const loadData = useCallback(async () => {
     if (!isAuthenticated) return;
-
-    setIsLoadingChats(true);
     try {
-      const [userChats, userSpaces] = await Promise.all([
-        api.getChats(),
-        api.getSpaces()
-      ]);
+      const [userChats, userSpaces] = await Promise.all([api.getChats(), api.getSpaces()]);
       setChats(userChats);
-      // Filter out any spaces that are currently being deleted
-      setSpaces(userSpaces.filter(s => !deletingSpaceIds.current.has(s.id)));
+      setSpaces(userSpaces.filter((s) => !deletingSpaceIds.current.has(s.id)));
     } catch (error) {
       console.error('Failed to load data:', error);
-    } finally {
-      setIsLoadingChats(false);
     }
   }, [isAuthenticated]);
 
@@ -52,14 +68,12 @@ export default function Dashboard() {
     loadData();
   }, [loadData]);
 
-  // Load messages when active chat changes
   useEffect(() => {
     const loadMessages = async () => {
       if (!activeChat) {
         setMessages([]);
         return;
       }
-
       try {
         const chatMessages = await api.getMessages(activeChat.id);
         setMessages(chatMessages);
@@ -67,85 +81,70 @@ export default function Dashboard() {
         console.error('Failed to load messages:', error);
       }
     };
-
     loadMessages();
   }, [activeChat]);
 
   const handleCreateChat = async (youtubeLink: string, spaceId?: number) => {
     const newChat = await api.createChat(youtubeLink, spaceId);
-
-    // Reload data to get full data
     await loadData();
-
-    // Find and select the new chat
     const fullChats = await api.getChats();
-    const createdChat = fullChats.find(c => c.id === newChat.id);
+    const createdChat = fullChats.find((c) => c.id === newChat.id);
     if (createdChat) {
       setActiveChat(createdChat);
+      setShowLibrary(false);
+      setViewingSpaceId(null);
       setActiveSpaceId(spaceId || null);
     }
   };
 
   const handleUploadPdf = async (file: File, spaceId?: number) => {
     const newChat = await api.uploadPdf(file, spaceId);
-
-    // Reload data to get full data
     await loadData();
-
-    // Find and select the new chat
     const fullChats = await api.getChats();
-    const createdChat = fullChats.find(c => c.id === newChat.id);
+    const createdChat = fullChats.find((c) => c.id === newChat.id);
     if (createdChat) {
       setActiveChat(createdChat);
+      setShowLibrary(false);
+      setViewingSpaceId(null);
       setActiveSpaceId(spaceId || null);
     }
   };
 
-  const handleWebsiteSubmit = async (url: string, spaceId?: number) => {
-    const newChat = await api.createWebsiteChat(url, spaceId);
-
-    // Reload data to get full data
-    await loadData();
-
-    // Find and select the new chat
-    const fullChats = await api.getChats();
-    const createdChat = fullChats.find(c => c.id === newChat.id);
-    if (createdChat) {
-      setActiveChat(createdChat);
-      setActiveSpaceId(spaceId || null);
-    }
-  };
-
-  const handleAudioSubmit = async (file: File, spaceId?: number) => {
+  const handleUploadAudio = async (file: File, spaceId?: number) => {
     const newChat = await api.uploadAudio(file, spaceId);
-
-    // Reload data to get full data
     await loadData();
-
-    // Find and select the new chat
     const fullChats = await api.getChats();
-    const createdChat = fullChats.find(c => c.id === newChat.id);
+    const createdChat = fullChats.find((c) => c.id === newChat.id);
     if (createdChat) {
       setActiveChat(createdChat);
+      setShowLibrary(false);
+      setViewingSpaceId(null);
+      setActiveSpaceId(spaceId || null);
+    }
+  };
+
+  const handleCreateWebsiteChat = async (url: string, spaceId?: number) => {
+    const newChat = await api.createChatFromWebsite(url, spaceId);
+    await loadData();
+    const fullChats = await api.getChats();
+    const createdChat = fullChats.find((c) => c.id === newChat.id);
+    if (createdChat) {
+      setActiveChat(createdChat);
+      setShowLibrary(false);
+      setViewingSpaceId(null);
       setActiveSpaceId(spaceId || null);
     }
   };
 
   const handleDeleteChat = async (chatId: number) => {
     await api.deleteChat(chatId);
-
-    if (activeChat?.id === chatId) {
-      setActiveChat(null);
-    }
-
-    setChats(prev => prev.filter(c => c.id !== chatId));
-    // Reload spaces to update chat counts, but filter out any being deleted
+    if (activeChat?.id === chatId) setActiveChat(null);
+    setChats((prev) => prev.filter((c) => c.id !== chatId));
     const updatedSpaces = await api.getSpaces();
-    setSpaces(updatedSpaces.filter(s => !deletingSpaceIds.current.has(s.id)));
+    setSpaces(updatedSpaces.filter((s) => !deletingSpaceIds.current.has(s.id)));
   };
 
   const handleCreateSpace = async (name: string) => {
-    // Optimistic: add space immediately with a temporary negative ID
     const tempId = -Date.now();
     const optimisticSpace: Space = {
       id: tempId,
@@ -154,62 +153,46 @@ export default function Dashboard() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setSpaces(prev => [optimisticSpace, ...prev]);
-
-    // Call API in background and replace temp with real space
+    setSpaces((prev) => [optimisticSpace, ...prev]);
     try {
       const newSpace = await api.createSpace(name);
-      setSpaces(prev => prev.map(s => s.id === tempId ? newSpace : s));
+      setSpaces((prev) => prev.map((s) => (s.id === tempId ? newSpace : s)));
       return newSpace;
     } catch (error) {
-      // Remove optimistic space on error
-      setSpaces(prev => prev.filter(s => s.id !== tempId));
+      setSpaces((prev) => prev.filter((s) => s.id !== tempId));
       console.error('Failed to create space:', error);
       throw error;
     }
   };
 
   const handleDeleteSpace = async (spaceId: number) => {
-    // Track this space as being deleted to prevent it from reappearing on reload
     deletingSpaceIds.current.add(spaceId);
-
-    // Optimistic: remove space immediately
-    const deletedSpace = spaces.find(s => s.id === spaceId);
-    setSpaces(prev => prev.filter(s => s.id !== spaceId));
-
-    // Optimistic: unassign chats from this space
-    setChats(prev => prev.map(c => c.space_id === spaceId ? { ...c, space_id: null } : c));
-
-    if (activeSpaceId === spaceId) {
-      setActiveSpaceId(null);
+    const deletedSpace = spaces.find((s) => s.id === spaceId);
+    setSpaces((prev) => prev.filter((s) => s.id !== spaceId));
+    setChats((prev) => prev.map((c) => (c.space_id === spaceId ? { ...c, space_id: null } : c)));
+    if (activeSpaceId === spaceId) setActiveSpaceId(null);
+    if (viewingSpaceId === spaceId) {
+      setViewingSpaceId(null);
+      setShowLibrary(true);
     }
-
-    // Call API in background
-    api.deleteSpace(spaceId).then(() => {
-      // Successfully deleted, remove from tracking
-      deletingSpaceIds.current.delete(spaceId);
-    }).catch(error => {
-      console.error('Failed to delete space:', error);
-      // Remove from tracking and restore space on error
-      deletingSpaceIds.current.delete(spaceId);
-      if (deletedSpace) {
-        setSpaces(prev => [deletedSpace, ...prev]);
-      }
-    });
+    api
+      .deleteSpace(spaceId)
+      .then(() => {
+        deletingSpaceIds.current.delete(spaceId);
+      })
+      .catch((error) => {
+        console.error('Failed to delete space:', error);
+        deletingSpaceIds.current.delete(spaceId);
+        if (deletedSpace) setSpaces((prev) => [deletedSpace, ...prev]);
+      });
   };
 
   const handleRenameSpace = async (spaceId: number, newName: string) => {
-    // Optimistic: update name immediately
-    const oldName = spaces.find(s => s.id === spaceId)?.name;
-    setSpaces(prev => prev.map(s => s.id === spaceId ? { ...s, name: newName } : s));
-
-    // Call API in background
-    api.updateSpace(spaceId, newName).catch(error => {
+    const oldName = spaces.find((s) => s.id === spaceId)?.name;
+    setSpaces((prev) => prev.map((s) => (s.id === spaceId ? { ...s, name: newName } : s)));
+    api.updateSpace(spaceId, newName).catch((error) => {
       console.error('Failed to rename space:', error);
-      // Restore old name on error
-      if (oldName) {
-        setSpaces(prev => prev.map(s => s.id === spaceId ? { ...s, name: oldName } : s));
-      }
+      if (oldName) setSpaces((prev) => prev.map((s) => (s.id === spaceId ? { ...s, name: oldName } : s)));
     });
   };
 
@@ -220,21 +203,22 @@ export default function Dashboard() {
 
   const handleSendMessage = async (input: string, useWebSearch: boolean = false) => {
     if (!activeChat) return;
-
-    // Add user message optimistically so it shows immediately
     const tempId = Date.now();
-    const userMessage: Message = { id: tempId, input, output: '', chat_id: activeChat.id, user_id: 0 };
-    setMessages(prev => [...prev, userMessage]);
-
+    const userMessage: Message = {
+      id: tempId,
+      input,
+      output: '',
+      chat_id: activeChat.id,
+      user_id: 0,
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setIsSendingMessage(true);
     try {
       const response = await api.createMessage(input, activeChat.id, useWebSearch);
-      // Replace temp message with actual response (same input, now with output)
-      setMessages(prev => prev.map(m => m.id === tempId ? response : m));
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? response : m)));
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Remove temp message on error
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setIsSendingMessage(false);
     }
@@ -247,6 +231,8 @@ export default function Dashboard() {
     setActiveChat(null);
     setActiveSpaceId(null);
     setMessages([]);
+    setShowLibrary(false);
+    setViewingSpaceId(null);
   };
 
   // Auth loading state
@@ -254,39 +240,122 @@ export default function Dashboard() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{
-          backgroundImage: 'url(/images/app-background.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
+        style={{ background: 'var(--lumina-bg)' }}
       >
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-2 border-[#0C115B]/20 border-t-[#0C115B] animate-spin" />
+          <div
+            className="animate-spin"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              border: '2px solid rgba(0,122,255,0.18)',
+              borderTopColor: 'var(--lumina-accent)',
+            }}
+          />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-[#0C115B]/10" />
+            <Aperture size={20} />
           </div>
         </div>
       </div>
     );
   }
 
-  // Not authenticated - show auth page
   if (!isAuthenticated) {
     return <AuthPage onLogin={login} onRegister={register} />;
   }
 
-  // Main dashboard
+  // Determine which view to show in the main pane
+  const hasNoSources = chats.length === 0;
+  const viewingSpace = viewingSpaceId != null ? spaces.find((s) => s.id === viewingSpaceId) ?? null : null;
+  let mainContent: React.ReactNode;
+  if (activeChat) {
+    const activeSpaceName =
+      activeChat.space_id != null
+        ? spaces.find((s) => s.id === activeChat.space_id)?.name ?? null
+        : null;
+    mainContent = (
+      <ChatView
+        chat={activeChat}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isSidebarCollapsed={isSidebarCollapsed}
+        isSending={isSendingMessage}
+        spaceName={activeSpaceName}
+        spaceId={activeChat.space_id ?? null}
+      />
+    );
+  } else if (viewingSpace) {
+    mainContent = (
+      <SpaceDetailView
+        space={viewingSpace}
+        chats={chats}
+        spaces={spaces}
+        onBack={() => {
+          setViewingSpaceId(null);
+          setShowLibrary(true);
+        }}
+        onSelectChat={(c) => {
+          setActiveChat(c);
+          setActiveSpaceId(c.space_id ?? null);
+          setViewingSpaceId(null);
+          setShowLibrary(false);
+        }}
+        onNewChat={() => openNewChatModal()}
+      />
+    );
+  } else if (hasNoSources && !showLibrary) {
+    mainContent = <EmptyState onNewChat={(kind) => openNewChatModal(kind)} />;
+  } else {
+    mainContent = (
+      <LibraryView
+        chats={chats}
+        spaces={spaces}
+        username={username || undefined}
+        onNewChat={() => openNewChatModal()}
+        onSelectChat={(c) => {
+          setActiveChat(c);
+          setActiveSpaceId(c.space_id ?? null);
+          setShowLibrary(false);
+        }}
+        onSelectSpace={(id) => {
+          // Clicking a space tile from the library opens the dedicated
+          // space-detail page.
+          setActiveSpaceId(id);
+          setViewingSpaceId(id);
+          setShowLibrary(false);
+        }}
+        onCreateSpace={handleCreateSpace}
+      />
+    );
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
-      {/* Sidebar */}
+    <div
+      className="flex h-screen overflow-hidden lumina-app-shell"
+      style={{ background: 'var(--lumina-bg)' }}
+    >
       <ChatSidebar
         chats={chats}
         spaces={spaces}
         activeChat={activeChat}
         activeSpaceId={activeSpaceId}
-        onSelectChat={setActiveChat}
-        onSelectSpace={setActiveSpaceId}
-        onNewChat={() => setIsNewChatModalOpen(true)}
+        onSelectChat={(c) => {
+          setActiveChat(c);
+          setActiveSpaceId(c.space_id ?? null);
+          setViewingSpaceId(null);
+          setShowLibrary(false);
+        }}
+        onSelectSpace={(id) => {
+          // Clicking a space in the sidebar opens its detail page (matches
+          // the dashboard's space-tile behavior).
+          setActiveSpaceId(id);
+          setViewingSpaceId(id);
+          setActiveChat(null);
+          setShowLibrary(false);
+        }}
+        onNewChat={() => openNewChatModal()}
         onDeleteChat={handleDeleteChat}
         onCreateSpace={handleCreateSpace}
         onDeleteSpace={handleDeleteSpace}
@@ -295,34 +364,31 @@ export default function Dashboard() {
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        username={username || undefined}
+        onShowLibrary={() => {
+          setActiveChat(null);
+          setActiveSpaceId(null);
+          setViewingSpaceId(null);
+          setShowLibrary(true);
+        }}
+        isLibraryActive={!activeChat && !viewingSpaceId && (showLibrary || hasNoSources)}
       />
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        {activeChat ? (
-          <ChatView
-            chat={activeChat}
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            isSidebarCollapsed={isSidebarCollapsed}
-            isSending={isSendingMessage}
-          />
-        ) : (
-          <EmptyState onNewChat={() => setIsNewChatModalOpen(true)} />
-        )}
-      </main>
+      {mainContent}
 
-      {/* New chat modal */}
       <NewChatModal
         isOpen={isNewChatModalOpen}
-        onClose={() => setIsNewChatModalOpen(false)}
+        onClose={() => {
+          setIsNewChatModalOpen(false);
+          setInitialModalKind(null);
+        }}
         onSubmitYoutube={handleCreateChat}
         onSubmitPdf={handleUploadPdf}
-        onSubmitAudio={handleAudioSubmit}
-        onSubmitWebsite={handleWebsiteSubmit}
+        onSubmitAudio={handleUploadAudio}
+        onSubmitWebsite={handleCreateWebsiteChat}
         spaces={spaces}
         activeSpaceId={activeSpaceId}
+        initialKind={initialModalKind}
       />
     </div>
   );

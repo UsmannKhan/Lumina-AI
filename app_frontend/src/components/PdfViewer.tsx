@@ -445,7 +445,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                         value={zoomValue === 'fit' ? '' : Math.round(zoomValue * 100)}
                                         placeholder="--"
                                         onChange={handleCustomZoom}
-                                        className="w-12 px-1 py-0.5 text-sm text-center border border-gray-200 rounded focus:outline-none focus:border-[#0C115B]"
+                                        className="w-12 px-1 py-0.5 text-sm text-center border border-gray-200 rounded focus:outline-none focus:border-[#007AFF]"
                                     />
                                     <span className="text-xs text-gray-500">%</span>
                                     <button
@@ -531,7 +531,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                     (e.target as HTMLInputElement).blur();
                                 }
                             }}
-                            className="w-7 2xl:w-10 px-1 py-0.5 text-xs 2xl:text-sm text-center font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#0C115B] bg-white"
+                            className="w-7 2xl:w-10 px-1 py-0.5 text-xs 2xl:text-sm text-center font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#007AFF] bg-white"
                         />
                         <span className="text-gray-400">/</span>
                         <span>{numPages}</span>
@@ -593,7 +593,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
             >
                 {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                        <Loader2 className="w-8 h-8 animate-spin text-[#0C115B]" />
+                        <Loader2 className="w-8 h-8 animate-spin text-[#007AFF]" />
                     </div>
                 )}
 
@@ -633,7 +633,7 @@ export default function PdfViewer({ pdfUrl, onTextSelect }: PdfViewerProps) {
                                 renderAnnotationLayer={true}
                                 loading={
                                     <div className="flex items-center justify-center bg-gray-50" style={{ width: getWidth() || 'auto', height: 400 }}>
-                                        <Loader2 className="w-6 h-6 animate-spin text-[#0C115B]" />
+                                        <Loader2 className="w-6 h-6 animate-spin text-[#007AFF]" />
                                     </div>
                                 }
                             />

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { cn } from '@/lib/utils';
-import { X, Youtube, Sparkles, FileText, Brain, MessageCircle, Lightbulb, Folder, Upload, File, Globe } from 'lucide-react';
-import Button from './Button';
-import Input from './Input';
+import { X, Upload, File as FileIcon } from 'lucide-react';
+import { Aperture, ApertureMini } from './Logo';
 import { Space } from '@/types';
+import { spaceColor } from './ChatSidebar';
+
+export type SourceKind = 'youtube' | 'pdf' | 'audio' | 'web';
 
 interface NewChatModalProps {
   isOpen: boolean;
@@ -16,12 +17,89 @@ interface NewChatModalProps {
   onSubmitWebsite: (url: string, spaceId?: number) => Promise<void>;
   spaces: Space[];
   activeSpaceId: number | null;
+  /** When provided, the modal opens with this source kind preselected. */
+  initialKind?: SourceKind | null;
 }
 
-type TabType = 'youtube' | 'file' | 'website';
+const SOURCE_KIND_DEFS: { id: SourceKind; label: string; sub: string; icon: React.ReactNode }[] = [
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    sub: 'Paste URL',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 9.5L15 12L10 14.5V9.5Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    id: 'pdf',
+    label: 'PDF / Doc',
+    sub: 'PDF, DOCX, TXT',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M5 2.5h10l4 4v14a.5.5 0 0 1-.5.5h-13.5a.5.5 0 0 1-.5-.5v-17.5a.5.5 0 0 1 .5-.5z"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        />
+        <path d="M15 2.5v4h4" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'audio',
+    label: 'Audio',
+    sub: 'MP3, WAV, M4A',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M5 9v6M9 6v12M13 7v10M17 9v6M21 11v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: 'web',
+    label: 'Webpage',
+    sub: 'Articles, ArXiv',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18" stroke="currentColor" strokeWidth="1.3" />
+      </svg>
+    ),
+  },
+];
 
-export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmitPdf, onSubmitAudio, onSubmitWebsite, spaces, activeSpaceId }: NewChatModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('youtube');
+const ACCEPT_BY_KIND: Record<SourceKind, string> = {
+  youtube: '',
+  pdf: '.pdf,.txt,.docx,.pptx',
+  audio: '.mp3,.wav,.m4a,.ogg,.webm,.flac',
+  web: '',
+};
+
+const VALID_FILE_EXTS: Record<'pdf' | 'audio', string[]> = {
+  pdf: ['pdf', 'txt', 'docx', 'pptx'],
+  audio: ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'],
+};
+
+const MAX_BYTES_BY_KIND: Record<'pdf' | 'audio', number> = {
+  pdf: 10 * 1024 * 1024, // 10 MB
+  audio: 25 * 1024 * 1024, // 25 MB (matches backend limit)
+};
+
+export default function NewChatModal({
+  isOpen,
+  onClose,
+  onSubmitYoutube,
+  onSubmitPdf,
+  onSubmitAudio,
+  onSubmitWebsite,
+  spaces,
+  activeSpaceId,
+  initialKind,
+}: NewChatModalProps) {
+  const [activeKind, setActiveKind] = useState<SourceKind>(initialKind || 'youtube');
   const [youtubeLink, setYoutubeLink] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -33,529 +111,508 @@ export default function NewChatModal({ isOpen, onClose, onSubmitYoutube, onSubmi
 
   if (!isOpen) return null;
 
-  const handleYoutubeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!youtubeLink.includes('youtube.com') && !youtubeLink.includes('youtu.be')) {
-      setError('Please enter a valid YouTube URL');
+  const handleSelectFile = (file: File | null) => {
+    if (!file) return;
+    const fileKind = activeKind === 'audio' ? 'audio' : 'pdf';
+    const ext = file.name.toLowerCase().split('.').pop() || '';
+    if (!VALID_FILE_EXTS[fileKind].includes(ext)) {
+      setError(
+        fileKind === 'audio'
+          ? 'Only MP3, WAV, M4A, OGG, WebM, FLAC files are allowed'
+          : 'Only PDF, TXT, DOCX, and PPTX files are allowed'
+      );
       return;
     }
-
-    setIsLoading(true);
-    try {
-      await onSubmitYoutube(youtubeLink, selectedSpaceId);
-      setYoutubeLink('');
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze video');
-    } finally {
-      setIsLoading(false);
+    if (file.size > MAX_BYTES_BY_KIND[fileKind]) {
+      const mb = MAX_BYTES_BY_KIND[fileKind] / (1024 * 1024);
+      setError(`File too large. Maximum size is ${mb} MB`);
+      return;
     }
+    setSelectedFile(file);
+    setError('');
   };
 
-  const handleFileSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!selectedFile) {
-      setError('Please select a file');
-      return;
-    }
-
-    const ext = selectedFile.name.toLowerCase().split('.').pop() || '';
-    const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext);
-
     setIsLoading(true);
     try {
-      if (isAudio) {
-        await onSubmitAudio(selectedFile, selectedSpaceId);
-      } else {
+      if (activeKind === 'youtube') {
+        if (!youtubeLink.includes('youtube.com') && !youtubeLink.includes('youtu.be')) {
+          setError('Please enter a valid YouTube URL');
+          setIsLoading(false);
+          return;
+        }
+        await onSubmitYoutube(youtubeLink, selectedSpaceId);
+        setYoutubeLink('');
+        onClose();
+      } else if (activeKind === 'pdf') {
+        if (!selectedFile) {
+          setError('Please select a file');
+          setIsLoading(false);
+          return;
+        }
         await onSubmitPdf(selectedFile, selectedSpaceId);
+        setSelectedFile(null);
+        onClose();
+      } else if (activeKind === 'audio') {
+        if (!selectedFile) {
+          setError('Please select an audio file');
+          setIsLoading(false);
+          return;
+        }
+        await onSubmitAudio(selectedFile, selectedSpaceId);
+        setSelectedFile(null);
+        onClose();
+      } else if (activeKind === 'web') {
+        const url = websiteUrl.trim();
+        if (!/^https?:\/\//i.test(url)) {
+          setError('Please enter a valid URL (must start with http:// or https://)');
+          setIsLoading(false);
+          return;
+        }
+        await onSubmitWebsite(url, selectedSpaceId);
+        setWebsiteUrl('');
+        onClose();
       }
-      setSelectedFile(null);
-      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze file');
+      setError(err instanceof Error ? err.message : 'Failed to add source');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleWebsiteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      new URL(websiteUrl);
-    } catch {
-      setError('Please enter a valid URL (e.g., https://en.wikipedia.org/...)');
-      return;
-    }
-
-    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-      setError('URL must start with http:// or https://');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await onSubmitWebsite(websiteUrl, selectedSpaceId);
-      setWebsiteUrl('');
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze website');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const ext = file.name.toLowerCase().split('.').pop();
-      const allowedExts = ['pdf', 'txt', 'docx', 'pptx', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'];
-      if (!allowedExts.includes(ext || '')) {
-        setError('Unsupported file type. Allowed: PDF, TXT, DOCX, PPTX, MP3, WAV, M4A, OGG, WEBM, FLAC');
-        return;
-      }
-      const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext || '');
-      const maxSize = isAudio ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setError(`File too large. Maximum size is ${isAudio ? '25MB' : '10MB'}`);
-        return;
-      }
-      setSelectedFile(file);
-      setError('');
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      const ext = file.name.toLowerCase().split('.').pop();
-      const allowedExts = ['pdf', 'txt', 'docx', 'pptx', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'];
-      if (!allowedExts.includes(ext || '')) {
-        setError('Unsupported file type');
-        return;
-      }
-      const isAudio = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(ext || '');
-      const maxSize = isAudio ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setError(`File too large. Maximum size is ${isAudio ? '25MB' : '10MB'}`);
-        return;
-      }
-      setSelectedFile(file);
-      setError('');
-    }
-  };
-
-  const isAudioFile = selectedFile && ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'flac'].includes(
-    selectedFile.name.toLowerCase().split('.').pop() || ''
-  );
-
-  const loadingMessage = activeTab === 'youtube'
-    ? 'Extracting transcript...'
-    : activeTab === 'website'
-      ? 'Fetching and analyzing website...'
-      : isAudioFile
-        ? 'Transcribing and analyzing audio...'
-        : 'Extracting text from file...';
+  const loadingMessage =
+    activeKind === 'youtube'
+      ? 'Extracting transcript…'
+      : activeKind === 'audio'
+      ? 'Transcribing audio…'
+      : activeKind === 'web'
+      ? 'Fetching webpage…'
+      : 'Extracting text from file…';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Dim backdrop */}
       <div
-        className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
-        onClick={onClose}
+        className="absolute inset-0"
+        style={{ background: 'rgba(15,15,20,0.32)', backdropFilter: 'blur(2px)' }}
+        onClick={isLoading ? undefined : onClose}
       />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 animate-fade-in-up">
-        <div className="glass-card rounded-3xl overflow-hidden shadow-2xl">
-          {/* Header */}
-          <div className="relative px-6 pt-6 pb-4">
-            <button
-              onClick={onClose}
-              className="absolute right-4 top-4 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+      <div
+        className="relative w-full animate-fade-in-up"
+        style={{
+          maxWidth: 540,
+          background: 'var(--lumina-surface)',
+          borderRadius: 18,
+          padding: 24,
+          boxShadow:
+            '0 20px 60px rgba(15,15,20,0.18), 0 0 0 1px rgba(15,15,20,0.06)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: 'var(--lumina-accent-soft)',
+                color: 'var(--lumina-accent)',
+              }}
             >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-primary/15 border border-primary/30">
-                <Sparkles className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-foreground">
-                  New Analysis
-                </h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Add content to analyze
-                </p>
-              </div>
+              <ApertureMini size={16} />
             </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => { setActiveTab('youtube'); setError(''); }}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
-                  activeTab === 'youtube'
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
-                )}
+            <div>
+              <div
+                className="font-semibold"
+                style={{ fontSize: 15, letterSpacing: '-0.2px' }}
               >
-                <Youtube className="w-4 h-4" />
-                YouTube
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('file'); setError(''); }}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
-                  activeTab === 'file'
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
-                )}
-              >
-                <FileText className="w-4 h-4" />
-                File
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('website'); setError(''); }}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-all",
-                  activeTab === 'website'
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "bg-white/30 text-muted-foreground hover:bg-white/50 border border-transparent"
-                )}
-              >
-                <Globe className="w-4 h-4" />
-                Website
-              </button>
+                Add a source
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--lumina-text-faint)' }}>
+                Pick how you want to bring it in
+              </div>
             </div>
           </div>
+          <button
+            onClick={isLoading ? undefined : onClose}
+            disabled={isLoading}
+            aria-label="Close"
+            className="flex items-center justify-center transition-colors"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--lumina-text-faint)',
+              cursor: isLoading ? 'default' : 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) e.currentTarget.style.background = 'var(--lumina-surface-alt)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          {/* Body - YouTube Tab */}
-          {activeTab === 'youtube' && (
-            <form onSubmit={handleYoutubeSubmit} className="px-6 pb-6">
-              <Input
-                placeholder="https://youtube.com/watch?v=..."
+        {/* Source kind picker */}
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: 16 }}>
+          {SOURCE_KIND_DEFS.map((kind) => {
+            const isActive = activeKind === kind.id;
+            return (
+              <button
+                key={kind.id}
+                type="button"
+                onClick={() => {
+                  setActiveKind(kind.id);
+                  // Clear file selection when switching between file-based kinds
+                  // so the validator picks up the right ext list.
+                  setSelectedFile(null);
+                  setError('');
+                }}
+                className="flex items-center gap-3 text-left transition-colors"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: `1px solid ${isActive ? 'var(--lumina-accent)' : 'var(--lumina-divider)'}`,
+                  background: isActive ? 'var(--lumina-accent-soft)' : 'var(--lumina-surface)',
+                  boxShadow: isActive ? '0 0 0 3px rgba(0,122,255,0.12)' : 'none',
+                }}
+              >
+                <span
+                  className="flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: isActive ? 'var(--lumina-surface)' : 'var(--lumina-surface-alt)',
+                    color: isActive ? 'var(--lumina-accent)' : 'var(--lumina-text-dim)',
+                  }}
+                >
+                  {kind.icon}
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className="block font-semibold"
+                    style={{ fontSize: 13, letterSpacing: '-0.2px' }}
+                  >
+                    {kind.label}
+                  </span>
+                  <span className="block" style={{ fontSize: 11, color: 'var(--lumina-text-faint)' }}>
+                    {kind.sub}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit}>
+          {activeKind === 'youtube' && (
+            <div
+              className="flex items-center gap-2"
+              style={{
+                background: 'var(--lumina-surface-alt)',
+                border: '1px solid var(--lumina-divider)',
+                borderRadius: 12,
+                padding: '10px 12px',
+                marginBottom: 12,
+              }}
+            >
+              <span
+                className="lumina-mono"
+                style={{ color: 'var(--lumina-text-faint)', fontSize: 13 }}
+              >
+                ↗
+              </span>
+              <input
                 value={youtubeLink}
                 onChange={(e) => setYoutubeLink(e.target.value)}
-                error={error}
-                icon={<Youtube className="w-5 h-5" />}
+                placeholder="https://youtube.com/watch?v=…"
                 autoFocus
+                className="flex-1 outline-none bg-transparent lumina-mono"
+                style={{ fontSize: 13, color: 'var(--lumina-text)', border: 'none' }}
               />
-
-              {/* Space selector */}
-              {spaces.length > 0 && (
-                <div className="mt-4">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Add to Space (optional)
-                  </label>
-                  <div className="relative">
-                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <select
-                      value={selectedSpaceId ?? ''}
-                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
-                    >
-                      <option value="">No space</option>
-                      {spaces.map((space) => (
-                        <option key={space.id} value={space.id}>
-                          {space.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Features preview */}
-              <div className="mt-6 p-4 rounded-2xl glass">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  What you'll get
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { icon: FileText, label: 'Full Transcript' },
-                    { icon: Brain, label: 'AI Analysis' },
-                    { icon: MessageCircle, label: 'Q&A Chat' },
-                    { icon: Lightbulb, label: 'Key Insights' },
-                  ].map((feature) => (
-                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
-                      <feature.icon className="w-4 h-4 text-primary" />
-                      <span>{feature.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-6 flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isLoading}
-                  className="flex-1"
-                >
-                  {isLoading ? 'Analyzing...' : 'Analyze Video'}
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* Body - File Tab */}
-          {activeTab === 'file' && (
-            <form onSubmit={handleFileSubmit} className="px-6 pb-6">
-              {/* File Drop Zone */}
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all",
-                  isDragging
-                    ? "border-primary bg-primary/5"
-                    : selectedFile
-                      ? "border-green-400 bg-green-50"
-                      : "border-gray-300 hover:border-primary/50 hover:bg-white/30"
-                )}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.txt,.docx,.pptx,.mp3,.wav,.m4a,.ogg,.webm,.flac"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-
-                {selectedFile ? (
-                  <div className="flex flex-col items-center">
-                    <File className="w-12 h-12 text-green-500 mb-3" />
-                    <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFile(null);
-                      }}
-                      className="mt-2 text-xs text-red-500 hover:text-red-600"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                    <p className="text-sm font-medium text-foreground">
-                      Drop your file here or click to browse
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PDF, TXT, DOCX, PPTX, MP3, WAV, M4A • Max 25MB
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {error && (
-                <p className="mt-2 text-sm text-red-500">{error}</p>
-              )}
-
-              {/* Space selector */}
-              {spaces.length > 0 && (
-                <div className="mt-4">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Add to Space (optional)
-                  </label>
-                  <div className="relative">
-                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <select
-                      value={selectedSpaceId ?? ''}
-                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
-                    >
-                      <option value="">No space</option>
-                      {spaces.map((space) => (
-                        <option key={space.id} value={space.id}>
-                          {space.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Features preview */}
-              <div className="mt-6 p-4 rounded-2xl glass">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  What you'll get
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { icon: FileText, label: 'Full Text Extract' },
-                    { icon: Brain, label: 'AI Analysis' },
-                    { icon: MessageCircle, label: 'Q&A Chat' },
-                    { icon: Lightbulb, label: 'Key Insights' },
-                  ].map((feature) => (
-                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
-                      <feature.icon className="w-4 h-4 text-primary" />
-                      <span>{feature.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-6 flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isLoading}
-                  disabled={!selectedFile}
-                  className="flex-1"
-                >
-                  {isLoading ? 'Analyzing...' : 'Analyze File'}
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* Body - Website Tab */}
-          {activeTab === 'website' && (
-            <form onSubmit={handleWebsiteSubmit} className="px-6 pb-6">
-              <Input
-                placeholder="https://en.wikipedia.org/wiki/..."
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                error={error}
-                icon={<Globe className="w-5 h-5" />}
-                autoFocus
-              />
-
-              <p className="text-xs text-muted-foreground mt-2">
-                Wikipedia, ArXiv, blog posts, articles, and more
-              </p>
-
-              {/* Space selector */}
-              {spaces.length > 0 && (
-                <div className="mt-4">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Add to Space (optional)
-                  </label>
-                  <div className="relative">
-                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <select
-                      value={selectedSpaceId ?? ''}
-                      onChange={(e) => setSelectedSpaceId(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/50 text-sm focus:outline-none focus:border-[#0C115B]/30 appearance-none cursor-pointer"
-                    >
-                      <option value="">No space</option>
-                      {spaces.map((space) => (
-                        <option key={space.id} value={space.id}>
-                          {space.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Features preview */}
-              <div className="mt-6 p-4 rounded-2xl glass">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  What you'll get
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { icon: FileText, label: 'Content Extract' },
-                    { icon: Brain, label: 'AI Analysis' },
-                    { icon: MessageCircle, label: 'Q&A Chat' },
-                    { icon: Lightbulb, label: 'Key Insights' },
-                  ].map((feature) => (
-                    <div key={feature.label} className="flex items-center gap-2 text-sm text-foreground">
-                      <feature.icon className="w-4 h-4 text-primary" />
-                      <span>{feature.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-6 flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isLoading}
-                  disabled={!websiteUrl.trim()}
-                  className="flex-1"
-                >
-                  {isLoading ? 'Analyzing...' : 'Analyze Website'}
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* Loading state overlay */}
-          {isLoading && (
-            <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center rounded-3xl">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-primary animate-pulse-soft" />
-                </div>
-              </div>
-              <p className="mt-4 text-foreground font-medium">{loadingMessage}</p>
-              <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
             </div>
           )}
-        </div>
+
+          {(activeKind === 'pdf' || activeKind === 'audio') && (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                handleSelectFile(e.dataTransfer.files?.[0] ?? null);
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              className="text-center cursor-pointer transition-colors"
+              style={{
+                padding: '24px 16px',
+                borderRadius: 12,
+                border: `1.5px dashed ${
+                  isDragging
+                    ? 'var(--lumina-accent)'
+                    : selectedFile
+                    ? 'var(--lumina-success)'
+                    : 'var(--lumina-divider)'
+                }`,
+                background: isDragging
+                  ? 'var(--lumina-accent-soft)'
+                  : selectedFile
+                  ? 'var(--lumina-success-soft)'
+                  : 'var(--lumina-surface-alt)',
+                marginBottom: 12,
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPT_BY_KIND[activeKind]}
+                onChange={(e) => handleSelectFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+              {selectedFile ? (
+                <div className="flex flex-col items-center gap-2">
+                  <FileIcon className="w-8 h-8" style={{ color: 'var(--lumina-success-text)' }} />
+                  <p className="font-medium" style={{ fontSize: 13, color: 'var(--lumina-text)' }}>
+                    {selectedFile.name}
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--lumina-text-faint)' }}>
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                    }}
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--lumina-error-text)',
+                      background: 'transparent',
+                      border: 'none',
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="w-8 h-8" style={{ color: 'var(--lumina-text-faint)' }} />
+                  <p className="font-medium" style={{ fontSize: 13, color: 'var(--lumina-text)' }}>
+                    Drop your file here or click to browse
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--lumina-text-faint)' }}>
+                    {activeKind === 'audio'
+                      ? 'MP3, WAV, M4A, OGG, WebM, FLAC · max 25 MB'
+                      : 'PDF, TXT, DOCX, PPTX · max 10 MB'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeKind === 'web' && (
+            <div
+              className="flex items-center gap-2"
+              style={{
+                background: 'var(--lumina-surface-alt)',
+                border: '1px solid var(--lumina-divider)',
+                borderRadius: 12,
+                padding: '10px 12px',
+                marginBottom: 12,
+              }}
+            >
+              <span
+                className="lumina-mono"
+                style={{ color: 'var(--lumina-text-faint)', fontSize: 13 }}
+              >
+                ↗
+              </span>
+              <input
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://example.com/article"
+                autoFocus
+                className="flex-1 outline-none bg-transparent lumina-mono"
+                style={{ fontSize: 13, color: 'var(--lumina-text)', border: 'none' }}
+              />
+            </div>
+          )}
+
+          {error && (
+            <p
+              style={{
+                fontSize: 12,
+                color: 'var(--lumina-error-text)',
+                marginBottom: 12,
+              }}
+            >
+              {error}
+            </p>
+          )}
+
+          {/* Space selector — chip style */}
+          {spaces.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: 'var(--lumina-text-faint)',
+                  marginBottom: 8,
+                  fontWeight: 500,
+                }}
+              >
+                Add to space
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSpaceId(undefined)}
+                  className="inline-flex items-center gap-1.5"
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    background:
+                      selectedSpaceId === undefined ? 'var(--lumina-accent-soft)' : 'var(--lumina-surface-alt)',
+                    color:
+                      selectedSpaceId === undefined ? 'var(--lumina-accent)' : 'var(--lumina-text-dim)',
+                    border: `1px solid ${
+                      selectedSpaceId === undefined ? 'var(--lumina-accent)' : 'transparent'
+                    }`,
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  No space
+                </button>
+                {spaces.map((s) => {
+                  const { color } = spaceColor(s.id);
+                  const active = selectedSpaceId === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSpaceId(s.id)}
+                      className="inline-flex items-center gap-1.5"
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 999,
+                        background: active ? 'var(--lumina-accent-soft)' : 'var(--lumina-surface-alt)',
+                        color: active ? 'var(--lumina-accent)' : 'var(--lumina-text)',
+                        border: `1px solid ${active ? 'var(--lumina-accent)' : 'transparent'}`,
+                        fontSize: 12,
+                        fontWeight: 500,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: 2,
+                          background: color,
+                          display: 'inline-block',
+                        }}
+                      />
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 8,
+                background: 'var(--lumina-surface-alt)',
+                border: 'none',
+                color: 'var(--lumina-text-dim)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: isLoading ? 'default' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || (((activeKind === 'pdf' || activeKind === 'audio') && !selectedFile))}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: 'var(--lumina-accent)',
+                color: '#fff',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: 'var(--lumina-shadow-accent)',
+                opacity: isLoading || (((activeKind === 'pdf' || activeKind === 'audio') && !selectedFile)) ? 0.6 : 1,
+              }}
+            >
+              {isLoading ? 'Adding…' : 'Add source'}
+            </button>
+          </div>
+        </form>
+
+        {isLoading && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            style={{
+              borderRadius: 18,
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <div className="relative">
+              <div
+                className="animate-spin"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  border: '2px solid rgba(0,122,255,0.18)',
+                  borderTopColor: 'var(--lumina-accent)',
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Aperture size={20} />
+              </div>
+            </div>
+            <p
+              className="font-medium mt-4"
+              style={{ fontSize: 13.5, color: 'var(--lumina-text)' }}
+            >
+              {loadingMessage}
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--lumina-text-faint)', marginTop: 4 }}>
+              This may take a moment
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

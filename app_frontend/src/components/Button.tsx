@@ -18,30 +18,50 @@ export default function Button({
   children,
   className,
   disabled,
+  style,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'relative inline-flex items-center justify-center font-semibold transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed';
+  const base =
+    'relative inline-flex items-center justify-center font-semibold transition-all duration-150 ease-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
 
-  const variants = {
-    primary: 'bg-[#0C115B] text-white hover:bg-[#0C115B]/90 hover:-translate-y-0.5 shadow-lg shadow-[#0C115B]/20',
-    secondary: 'glass text-foreground hover:bg-white/20',
-    ghost: 'text-muted-foreground hover:text-foreground hover:bg-white/10',
-    danger: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+  const variantStyle: Record<string, React.CSSProperties> = {
+    primary: {
+      background: 'var(--lumina-accent)',
+      color: '#fff',
+      border: 'none',
+      boxShadow: 'var(--lumina-shadow-accent)',
+    },
+    secondary: {
+      background: 'var(--lumina-surface-alt)',
+      color: 'var(--lumina-text-dim)',
+      border: '1px solid var(--lumina-divider)',
+    },
+    ghost: {
+      background: 'transparent',
+      color: 'var(--lumina-text-dim)',
+      border: 'none',
+    },
+    danger: {
+      background: 'var(--lumina-error-soft)',
+      color: 'var(--lumina-error-text)',
+      border: 'none',
+    },
   };
 
-  const sizes = {
-    sm: 'px-3 py-1.5 text-sm rounded-lg gap-1.5',
-    md: 'px-4 py-2.5 text-sm rounded-xl gap-2',
-    lg: 'px-6 py-3.5 text-base rounded-xl gap-2',
+  const sizes: Record<string, string> = {
+    sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5',
+    md: 'px-4 py-2 text-sm rounded-xl gap-2',
+    lg: 'px-6 py-3 text-[15px] rounded-xl gap-2',
   };
 
   return (
     <button
-      className={cn(baseStyles, variants[variant], sizes[size], className)}
+      className={cn(base, sizes[size], className)}
       disabled={disabled || isLoading}
+      style={{ ...variantStyle[variant], ...style }}
       {...props}
     >
-      {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+      {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
       {children}
     </button>
   );

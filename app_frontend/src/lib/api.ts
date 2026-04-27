@@ -2,6 +2,10 @@ import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, F
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+/** Custom event dispatched when the API receives a 401. AuthContext listens
+ *  for it so it can drop the user back to the login screen. */
+export const AUTH_EXPIRED_EVENT = 'lumina-auth-expired';
+
 class ApiClient {
   private token: string | null = null;
 
@@ -22,6 +26,18 @@ class ApiClient {
     return this.token;
   }
 
+  /** Called from request() on a 401. Clears local auth and signals the app. */
+  private handleUnauthorized() {
+    if (!this.token && (typeof window === 'undefined' || !localStorage.getItem('auth_token'))) {
+      // Already cleared — nothing to broadcast.
+      return;
+    }
+    this.setToken(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    }
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -40,6 +56,15 @@ class ApiClient {
       ...options,
       headers,
     });
+
+    if (response.status === 401) {
+      // Token is missing/expired/revoked. Clear local state and signal the
+      // auth context so the user lands on the login screen instead of an
+      // empty "logged in" home page.
+      this.handleUnauthorized();
+      const error = await response.json().catch(() => ({ detail: 'Session expired' }));
+      throw new Error(error.detail || 'Session expired');
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
@@ -97,13 +122,6 @@ class ApiClient {
     });
   }
 
-  async createWebsiteChat(url: string, spaceId?: number): Promise<CreateChatResponse> {
-    return this.request<CreateChatResponse>('/chats/website', {
-      method: 'POST',
-      body: JSON.stringify({ url, space_id: spaceId }),
-    });
-  }
-
   async uploadPdf(file: File, spaceId?: number): Promise<CreateChatResponse> {
     const formData = new FormData();
     formData.append('file', file);
@@ -137,18 +155,34 @@ class ApiClient {
     return `${API_BASE_URL}/chats/${chatId}/pdf?token=${token}`;
   }
 
+  getDocxUrl(chatId: number): string {
+    const token = this.getToken();
+    // Return URL with token as query param for DOCX download
+    return `${API_BASE_URL}/chats/${chatId}/docx?token=${token}`;
+  }
+
+  getAudioUrl(chatId: number): string {
+    const token = this.getToken();
+    return `${API_BASE_URL}/chats/${chatId}/audio?token=${token}`;
+  }
+
+  /** Create a chat from a website URL — backend fetches & extracts content. */
+  async createChatFromWebsite(url: string, spaceId?: number): Promise<CreateChatResponse> {
+    return this.request<CreateChatResponse>('/chats/website', {
+      method: 'POST',
+      body: JSON.stringify({ url, space_id: spaceId }),
+    });
+  }
+
+  /** Upload an audio file (mp3/wav/m4a/ogg/webm/flac, up to 25MB). */
   async uploadAudio(file: File, spaceId?: number): Promise<CreateChatResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    if (spaceId) {
-      formData.append('space_id', spaceId.toString());
-    }
+    if (spaceId) formData.append('space_id', spaceId.toString());
 
     const token = this.getToken();
     const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const response = await fetch(`${API_BASE_URL}/chats/audio`, {
       method: 'POST',
@@ -162,11 +196,6 @@ class ApiClient {
     }
 
     return response.json();
-  }
-
-  getAudioUrl(chatId: number): string {
-    const token = this.getToken();
-    return `${API_BASE_URL}/chats/${chatId}/audio?token=${token}`;
   }
 
   async deleteChat(chatId: number): Promise<void> {

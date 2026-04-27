@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
@@ -123,7 +123,7 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
         <div className={cn("markdown-content max-w-none", className)}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                components={components}
+                components={components as Components}
             >
                 {content}
             </ReactMarkdown>

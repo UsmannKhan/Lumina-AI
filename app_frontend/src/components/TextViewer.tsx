@@ -338,7 +338,7 @@ export default function TextViewer({ content, fileName, onTextSelect }: TextView
                                             "w-12 px-1 py-0.5 text-sm text-center border rounded focus:outline-none",
                                             isDarkMode
                                                 ? "bg-gray-700 border-gray-600 text-white focus:border-gray-500"
-                                                : "bg-white border-gray-200 text-gray-900 focus:border-[#0C115B]"
+                                                : "bg-white border-gray-200 text-gray-900 focus:border-[#007AFF]"
                                         )}
                                     />
                                     <span className={cn("text-xs", isDarkMode ? "text-gray-500" : "text-gray-500")}>%</span>

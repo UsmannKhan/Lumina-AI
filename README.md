@@ -1,7 +1,5 @@
 # Lumina
 
-> Turn anything you see into something you remember.
-
 Lumina is an AI-powered study companion. Drop in a **YouTube video**, **PDF**, **audio recording**, **Word doc**, **PowerPoint**, or **any web article**, and it turns the source into a complete study set: structured notes, flashcards, quizzes, and (for programming content) practice problems. Organize related sources into **Spaces** — like a course or a research project — and study everything together.
 
 ---

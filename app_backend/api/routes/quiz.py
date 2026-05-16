@@ -297,7 +297,10 @@ def generate_quiz(
         topics = [c.title for c in concepts]
     
     try:
-        transcript = chat.source_content[:15000]
+        # 150k chars ≈ ~37k tokens — covers full 2-3 hour lectures / long
+        # papers so the quiz can pull questions from the entire source, not
+        # just the first ~20 min / 6 pages.
+        transcript = chat.source_content[:150000]
         
         # Generate quiz with AI
         response = client.models.generate_content(

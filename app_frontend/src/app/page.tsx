@@ -45,9 +45,13 @@ export default function Dashboard() {
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   // Optional source-type pre-selection for the new-chat modal.
   const [initialModalKind, setInitialModalKind] = useState<SourceKind | null>(null);
+  // Optional URL pre-fill for the new-chat modal — used by the EmptyState
+  // sample tiles so clicking a sample drops the user into "click Create".
+  const [initialModalUrl, setInitialModalUrl] = useState<string | null>(null);
 
-  const openNewChatModal = useCallback((kind?: SourceKind) => {
+  const openNewChatModal = useCallback((kind?: SourceKind, url?: string) => {
     setInitialModalKind(kind ?? null);
+    setInitialModalUrl(url ?? null);
     setIsNewChatModalOpen(true);
   }, []);
   // Default to collapsed on small screens; expanded on lg+ (1024px)
@@ -335,7 +339,11 @@ export default function Dashboard() {
       />
     );
   } else if (hasNoSources && !showLibrary) {
-    mainContent = <EmptyState onNewChat={(kind) => openNewChatModal(kind)} />;
+    mainContent = (
+      <EmptyState
+        onNewChat={(kind, url) => openNewChatModal(kind, url)}
+      />
+    );
   } else {
     mainContent = (
       <LibraryView
@@ -410,6 +418,7 @@ export default function Dashboard() {
         onClose={() => {
           setIsNewChatModalOpen(false);
           setInitialModalKind(null);
+          setInitialModalUrl(null);
         }}
         onSubmitYoutube={handleCreateChat}
         onSubmitPdf={handleUploadPdf}
@@ -418,6 +427,7 @@ export default function Dashboard() {
         spaces={spaces}
         activeSpaceId={activeSpaceId}
         initialKind={initialModalKind}
+        initialUrl={initialModalUrl}
       />
     </div>
   );

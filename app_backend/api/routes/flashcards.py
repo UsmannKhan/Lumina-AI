@@ -155,8 +155,11 @@ def generate_and_save_flashcards(
 ) -> List[models.Flashcard]:
     """Generate flashcards using AI and save to database"""
     
-    # Get content (use timed transcript for YouTube, source_content for others)
-    content = chat.timed_content[:15000] if chat.timed_content else chat.source_content[:15000]
+    # Get content (use timed transcript for YouTube, source_content for others).
+    # 150k chars ≈ ~37k tokens — comfortably fits Gemini's window even for
+    # 2-3 hour lectures or 30-page papers, while leaving room for the prompt
+    # and output. Generated flashcards should now cover the full source.
+    content = chat.timed_content[:150000] if chat.timed_content else chat.source_content[:150000]
     
     # Pick the right prompt based on source type
     is_youtube = chat.source_type == 'youtube'

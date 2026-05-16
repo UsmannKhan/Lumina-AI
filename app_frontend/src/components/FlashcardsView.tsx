@@ -1091,13 +1091,16 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
 
         {/* Card controls moved to card surface (top-right) */}
 
-        {/* Keyboard hint */}
+        {/* Keyboard hint — only show the full shortcut list on md+ (the
+            breakpoint where ChatView swaps to desktop tabs and a physical
+            keyboard is likely). Touch devices below that get a simpler
+            "tap to flip" hint. */}
         {!isEditMode && (
           <p className="text-center text-xs text-gray-600 pb-4">
-            <span className="hidden sm:inline">
+            <span className="hidden md:inline">
               Space to flip • Arrow keys to navigate • H for hint • S to shuffle • R to reset
             </span>
-            <span className="sm:hidden">Tap card to flip</span>
+            <span className="md:hidden">Tap card to flip</span>
           </p>
         )}
 

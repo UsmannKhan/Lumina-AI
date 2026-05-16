@@ -138,12 +138,20 @@ export default function ChatSidebar({
     }
   };
 
-  // Collapsed: floating chevron in the top-left of the cream gutter
+  // Collapsed: floating chevron in the top-left.
+  // - Desktop (lg+): always visible — the only way to reopen the sidebar.
+  // - Mobile/tablet: visible in Library / SpaceDetail / EmptyState
+  //   (which lack their own header toggle); hidden inside ChatView
+  //   because ChatView has its own in-header hamburger.
   if (isCollapsed) {
+    const hideFloatingOnMobile = activeChat !== null;
     return (
       <button
         onClick={onToggleCollapse}
-        className="fixed left-3 top-3 z-50 flex items-center justify-center transition-all hover:scale-105"
+        className={cn(
+          'fixed left-3 top-3 z-50 items-center justify-center transition-all hover:scale-105',
+          hideFloatingOnMobile ? 'hidden lg:flex' : 'flex',
+        )}
         title="Show sidebar"
         aria-label="Show sidebar"
         style={{
@@ -207,21 +215,24 @@ export default function ChatSidebar({
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lumina-text-faint)' }}>{meta}</div>
         </div>
-        {hoveredChat === chat.id && !isActive && (
+        {!isActive && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onDeleteChat(chat.id);
             }}
             aria-label="Delete chat"
-            className="absolute flex items-center justify-center transition-colors"
+            className={cn(
+              'absolute flex items-center justify-center w-8 h-8 transition-opacity',
+              // Mobile: always visible (no hover state on touch).
+              // Desktop: hidden unless row is hovered.
+              'md:opacity-0 md:group-hover:opacity-100',
+            )}
             style={{
               top: '50%',
-              right: 8,
+              right: 4,
               transform: 'translateY(-50%)',
-              width: 22,
-              height: 22,
-              borderRadius: 6,
+              borderRadius: 8,
               background: 'var(--lumina-surface)',
               color: 'var(--lumina-text-faint)',
               border: 'none',
@@ -235,7 +246,7 @@ export default function ChatSidebar({
               e.currentTarget.style.color = 'var(--lumina-text-faint)';
             }}
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -243,19 +254,30 @@ export default function ChatSidebar({
   };
 
   return (
-    <aside
-      className="flex flex-col flex-shrink-0"
-      style={{
-        width: 264,
-        background: 'var(--lumina-surface)',
-        borderRadius: 16,
-        boxShadow: 'var(--lumina-shadow-sm)',
-        padding: '16px 12px',
-        // Consistent rhythm between top-level sidebar children — gives the
-        // "spacious" feeling from the Apple-clean handoff.
-        gap: 6,
-      }}
-    >
+    <>
+      {/* Mobile-only backdrop scrim — tap anywhere outside the sidebar to
+          close it. Hidden on md+ where the sidebar lives in normal flex
+          flow. */}
+      <div
+        onClick={onToggleCollapse}
+        aria-hidden="true"
+        className="md:hidden fixed inset-0 z-40"
+        style={{ background: 'rgba(15,15,20,0.4)' }}
+      />
+      <aside
+        className="flex flex-col flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 md:z-auto"
+        style={{
+          width: 264,
+          maxWidth: '85vw', // never wider than 85% of viewport on tiny screens
+          background: 'var(--lumina-surface)',
+          borderRadius: 16,
+          boxShadow: 'var(--lumina-shadow-sm)',
+          padding: '16px 12px',
+          // Consistent rhythm between top-level sidebar children — gives the
+          // "spacious" feeling from the Apple-clean handoff.
+          gap: 6,
+        }}
+      >
       {/* Brand */}
       <div
         className="flex items-center justify-between"
@@ -704,5 +726,6 @@ export default function ChatSidebar({
         </button>
       </div>
     </aside>
+    </>
   );
 }

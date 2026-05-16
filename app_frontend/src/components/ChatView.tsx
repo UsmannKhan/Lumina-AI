@@ -137,6 +137,10 @@ export default function ChatView({
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab ?? 'notes');
   const [isStudyDropdownOpen, setIsStudyDropdownOpen] = useState(false);
   const [isVideoExpanded, setIsVideoExpanded] = useState(false);
+  // Mobile-only: collapsible source-content panel. Defaults to closed so
+  // notes are the primary focus on a small screen; user can expand to peek
+  // at the PDF / video / audio.
+  const [isMobileSourceExpanded, setIsMobileSourceExpanded] = useState(false);
   const [transcriptMode, setTranscriptMode] = useState<'collapsed' | 'compact' | 'full'>('compact');
   const [isTranscriptAutoScroll, setIsTranscriptAutoScroll] = useState(true);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -562,17 +566,29 @@ export default function ChatView({
         </div>
       </header>
 
-      {/* Main split */}
-      <div className="flex-1 flex min-h-0">
-        {/* Source pane — width adapts when video is expanded so the user
-            can give the source more room without losing the notes pane. */}
+      {/* Main split — flex-col on mobile so source pane stacks above
+          content; flex-row on lg+ so source + content sit side by side. */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+        {/* Source pane.
+            Desktop: fixed-width sidebar with clamp() width.
+            Mobile: collapsible row above content, shown only when the user
+            taps the "Show source" toggle in the content pane. */}
         {showSourcePane && (
           <section
-            className="hidden lg:flex flex-col flex-shrink-0 overflow-hidden transition-[width] duration-300"
+            className={cn(
+              'flex-col flex-shrink-0 overflow-hidden transition-[width] duration-300',
+              // Width: full on mobile, clamp() on lg+
+              'w-full',
+              isVideoExpanded
+                ? 'lg:w-[clamp(540px,50%,760px)]'
+                : 'lg:w-[clamp(400px,36%,500px)]',
+              // Height: capped on mobile so notes stay visible below;
+              // unconstrained on lg+ so the source fills the sidebar
+              'max-h-[50vh] lg:max-h-none',
+              // Visibility: only when expanded on mobile, always on lg+
+              isMobileSourceExpanded ? 'flex' : 'hidden lg:flex',
+            )}
             style={{
-              width: isVideoExpanded
-                ? 'clamp(540px, 50%, 760px)'
-                : 'clamp(400px, 36%, 500px)',
               borderRight: '1px solid var(--lumina-divider)',
             }}
           >
@@ -860,6 +876,52 @@ export default function ChatView({
 
         {/* Content pane */}
         <section className="flex-1 flex flex-col min-w-0">
+          {/* Mobile-only source-pane toggle. Lets the user peek at the
+              PDF / video / audio without losing the notes below it. Only
+              renders when there's a source-pane to toggle, and only on
+              screens below lg (where the desktop source sidebar isn't
+              rendered). */}
+          {showSourcePane && (
+            <button
+              onClick={() => setIsMobileSourceExpanded((v) => !v)}
+              className="lg:hidden flex items-center justify-between flex-shrink-0 transition-colors"
+              style={{
+                padding: '10px 16px',
+                margin: '12px 16px 0',
+                borderRadius: 10,
+                background: isMobileSourceExpanded
+                  ? 'var(--lumina-accent-soft)'
+                  : 'var(--lumina-surface-alt)',
+                border: `1px solid ${isMobileSourceExpanded ? 'rgba(0,122,255,0.25)' : 'var(--lumina-divider)'}`,
+                color: isMobileSourceExpanded ? 'var(--lumina-accent)' : 'var(--lumina-text)',
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+              aria-expanded={isMobileSourceExpanded}
+            >
+              <span>
+                {isMobileSourceExpanded ? 'Hide source' : 'Show source'}
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    color: isMobileSourceExpanded ? 'var(--lumina-accent)' : 'var(--lumina-text-dim)',
+                    fontWeight: 400,
+                  }}
+                >
+                  {sourceMeta(chat)}
+                </span>
+              </span>
+              <ChevronDown
+                size={16}
+                style={{
+                  transition: 'transform 0.18s',
+                  transform: isMobileSourceExpanded ? 'rotate(180deg)' : 'none',
+                }}
+              />
+            </button>
+          )}
+
           {/* Main tab strip — sits at the top of the notes/content pane and
               switches activeTab. Always visible (md+); mobile uses the
               dropdown in the header. */}

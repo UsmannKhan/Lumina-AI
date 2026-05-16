@@ -5,8 +5,10 @@ import { Aperture } from './Logo';
 import type { SourceKind } from './NewChatModal';
 
 interface EmptyStateProps {
-  /** Optional `kind` lets the parent pre-select the source type in the modal. */
-  onNewChat: (kind?: SourceKind) => void;
+  /** Optional `kind` lets the parent pre-select the source type in the modal.
+   *  Optional `url` pre-fills the URL input — used by the sample tiles so a
+   *  first-run user can load a sample with one tap and one Create click. */
+  onNewChat: (kind?: SourceKind, url?: string) => void;
 }
 
 const SOURCE_TYPES: { id: SourceKind; label: string; sub: string; icon: React.ReactNode }[] = [
@@ -73,6 +75,9 @@ const SAMPLES: {
   label: string;
   meta: string;
   kind: SourceKind;
+  /** Real URL loaded when the user clicks the sample. The modal opens with
+   *  the URL pre-filled so they just confirm with Create. */
+  url: string;
   gradient: string;
   isVideo?: boolean;
   isPdf?: boolean;
@@ -82,6 +87,7 @@ const SAMPLES: {
     label: 'Neural Networks: Zero to Hero',
     meta: 'Andrej Karpathy · 2:25:52',
     kind: 'youtube',
+    url: 'https://www.youtube.com/watch?v=VMj-3S1tku0',
     gradient: 'linear-gradient(135deg, #1A1A2E 0%, #2A1A4E 60%, #4A2A6E 100%)',
     isVideo: true,
   },
@@ -90,6 +96,7 @@ const SAMPLES: {
     label: 'Attention Is All You Need',
     meta: 'arXiv · 1706.03762',
     kind: 'web',
+    url: 'https://arxiv.org/abs/1706.03762',
     gradient: 'linear-gradient(160deg, #FAFAF8 0%, #ECECEA 100%)',
     isPdf: true,
   },
@@ -98,6 +105,7 @@ const SAMPLES: {
     label: 'Yann LeCun on AGI',
     meta: 'Lex Fridman · 2:48:00',
     kind: 'youtube',
+    url: 'https://www.youtube.com/watch?v=5t1vTLU7s40',
     gradient: 'linear-gradient(135deg, #1F3A2E 0%, #2E5A45 100%)',
     isVideo: true,
   },
@@ -106,6 +114,7 @@ const SAMPLES: {
     label: 'The Bitter Lesson',
     meta: 'Rich Sutton · Article',
     kind: 'web',
+    url: 'http://www.incompleteideas.net/IncIdeas/BitterLesson.html',
     gradient: 'linear-gradient(160deg, #FAFAF8 0%, #EDE9FE 100%)',
     isPdf: true,
   },
@@ -247,7 +256,7 @@ export default function EmptyState({ onNewChat }: EmptyStateProps) {
               {SAMPLES.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => onNewChat(s.kind)}
+                  onClick={() => onNewChat(s.kind, s.url)}
                   className="text-left"
                   style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
                 >

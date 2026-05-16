@@ -19,6 +19,10 @@ interface NewChatModalProps {
   activeSpaceId: number | null;
   /** When provided, the modal opens with this source kind preselected. */
   initialKind?: SourceKind | null;
+  /** When provided alongside `initialKind` of 'youtube' or 'web', the
+   *  matching URL input is pre-filled. Used by the EmptyState sample
+   *  tiles to drop the user into "click Create" with one tap. */
+  initialUrl?: string | null;
 }
 
 const SOURCE_KIND_DEFS: { id: SourceKind; label: string; sub: string; icon: React.ReactNode }[] = [
@@ -98,10 +102,15 @@ export default function NewChatModal({
   spaces,
   activeSpaceId,
   initialKind,
+  initialUrl,
 }: NewChatModalProps) {
   const [activeKind, setActiveKind] = useState<SourceKind>(initialKind || 'youtube');
-  const [youtubeLink, setYoutubeLink] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [youtubeLink, setYoutubeLink] = useState(
+    initialKind === 'youtube' && initialUrl ? initialUrl : ''
+  );
+  const [websiteUrl, setWebsiteUrl] = useState(
+    initialKind === 'web' && initialUrl ? initialUrl : ''
+  );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | undefined>(activeSpaceId ?? undefined);
   const [isLoading, setIsLoading] = useState(false);

@@ -773,3 +773,15 @@
 
   .flashcard-inner { transition: none; }
 }
+
+/* ─── Mobile input zoom prevention ─────────────────────────────────────
+   iOS Safari auto-zooms the page when focusing an input whose font-size
+   is < 16px. Forcing 16px below the md breakpoint stops that — desktop
+   styling is unaffected. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

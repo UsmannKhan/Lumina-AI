@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Menu } from 'lucide-react';
 import { Aperture } from './Logo';
 import type { SourceKind } from './NewChatModal';
 
@@ -9,6 +10,9 @@ interface EmptyStateProps {
    *  Optional `url` pre-fills the URL input — used by the sample tiles so a
    *  first-run user can load a sample with one tap and one Create click. */
   onNewChat: (kind?: SourceKind, url?: string) => void;
+  /** Mobile-only sidebar toggle. Renders as a hamburger at top-left of the
+   *  panel; floating chevron is hidden on mobile. */
+  onToggleSidebar: () => void;
 }
 
 const SOURCE_TYPES: { id: SourceKind; label: string; sub: string; icon: React.ReactNode }[] = [
@@ -120,21 +124,39 @@ const SAMPLES: {
   },
 ];
 
-export default function EmptyState({ onNewChat }: EmptyStateProps) {
+export default function EmptyState({ onNewChat, onToggleSidebar }: EmptyStateProps) {
   return (
     <div
-      className="flex-1 flex flex-col overflow-hidden min-w-0"
+      className="relative flex-1 flex flex-col overflow-hidden min-w-0"
       style={{
         background: 'var(--lumina-surface)',
         borderRadius: 16,
         boxShadow: 'var(--lumina-shadow-md)',
       }}
     >
+      {/* Mobile sidebar hamburger — anchored top-left of the panel. */}
+      <button
+        onClick={onToggleSidebar}
+        aria-label="Open sidebar"
+        className="lg:hidden absolute flex items-center justify-center z-10"
+        style={{
+          top: 14,
+          left: 14,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'var(--lumina-surface-alt)',
+          color: 'var(--lumina-text-dim)',
+          border: 'none',
+        }}
+      >
+        <Menu size={18} />
+      </button>
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
           <div
-            className="mx-auto"
-            style={{ maxWidth: 880, padding: 'clamp(40px, 8vh, 72px) 32px 48px' }}
+            className="mx-auto px-4 md:px-8"
+            style={{ maxWidth: 880, paddingTop: 'clamp(40px, 8vh, 72px)', paddingBottom: 48 }}
           >
             <div className="text-center" style={{ marginBottom: 56 }}>
               <div

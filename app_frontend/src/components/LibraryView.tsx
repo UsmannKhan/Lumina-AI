@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Chat, Space } from '@/types';
 import { ApertureMini } from './Logo';
-import { Plus, ChevronRight, Check, X } from 'lucide-react';
+import { Plus, ChevronRight, Check, X, Menu } from 'lucide-react';
 import { spaceColor } from './ChatSidebar';
 import { SessionTile, AddTile } from './library-tiles';
 
@@ -16,6 +16,8 @@ interface LibraryViewProps {
   onSelectSpace: (spaceId: number | null) => void;
   /** Quick-create a space without leaving the library. */
   onCreateSpace?: (name: string) => Promise<unknown>;
+  /** Mobile-only sidebar toggle (the floating chevron is hidden on mobile). */
+  onToggleSidebar: () => void;
 }
 
 const VISIBLE_SPACES = 8;
@@ -89,6 +91,7 @@ export default function LibraryView({
   onSelectChat,
   onSelectSpace,
   onCreateSpace,
+  onToggleSidebar,
 }: LibraryViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAllRecents, setShowAllRecents] = useState(false);
@@ -148,18 +151,38 @@ export default function LibraryView({
 
   return (
     <div
-      className="flex-1 flex flex-col overflow-hidden min-w-0"
+      className="relative flex-1 flex flex-col overflow-hidden min-w-0"
       style={{
         background: 'var(--lumina-surface)',
         borderRadius: 16,
         boxShadow: 'var(--lumina-shadow-md)',
       }}
     >
+      {/* Mobile sidebar hamburger — sits at the top-left of the panel.
+          Floating chevron is hidden on mobile so this is the user's only
+          handle on the sidebar from Library / Home. */}
+      <button
+        onClick={onToggleSidebar}
+        aria-label="Open sidebar"
+        className="lg:hidden absolute flex items-center justify-center z-10"
+        style={{
+          top: 14,
+          left: 14,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'var(--lumina-surface-alt)',
+          color: 'var(--lumina-text-dim)',
+          border: 'none',
+        }}
+      >
+        <Menu size={18} />
+      </button>
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
           <div
-            className="mx-auto"
-            style={{ maxWidth: 1120, padding: 'clamp(40px, 6vh, 64px) 32px 48px' }}
+            className="mx-auto px-4 md:px-8"
+            style={{ maxWidth: 1120, paddingTop: 'clamp(40px, 6vh, 64px)', paddingBottom: 48 }}
           >
             <div className="text-center" style={{ marginBottom: 56 }}>
               <div style={{ fontSize: 13, color: 'var(--lumina-text-faint)', marginBottom: 10 }}>

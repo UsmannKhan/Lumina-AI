@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Chat, Space, SpaceFlashcard, SpaceQuizSummary } from '@/types';
-import { ChevronLeft, ChevronRight, GraduationCap, Layers, MessageSquare, Plus, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Layers, Menu, MessageSquare, Plus, Trophy } from 'lucide-react';
 import { spaceColor } from './ChatSidebar';
 import { SessionTile, AddTile } from './library-tiles';
 import { api } from '@/lib/api';
@@ -21,6 +21,9 @@ interface SpaceDetailViewProps {
   onBack: () => void;
   onSelectChat: (chat: Chat, target?: ChatOpenTarget) => void;
   onNewChat: () => void;
+  /** Mobile-only sidebar toggle. Floating chevron is hidden on mobile so each
+   *  view's header includes a hamburger that opens the sidebar overlay. */
+  onToggleSidebar: () => void;
 }
 
 /** A flashcard "set" — a unique (chat_id, set_name) bucket of cards from a
@@ -61,6 +64,7 @@ export default function SpaceDetailView({
   onBack,
   onSelectChat,
   onNewChat,
+  onToggleSidebar,
 }: SpaceDetailViewProps) {
   const { color, tint } = spaceColor(space.id);
   const spaceChats = chats
@@ -125,8 +129,8 @@ export default function SpaceDetailView({
         {/* Hero — uses the space's color tint, fading into the white surface
             below. Mirrors the design's ap-space.jsx hero gradient. */}
         <div
+          className="px-4 md:px-12 pt-6 md:pt-8 pb-7"
           style={{
-            padding: '32px 48px 28px',
             borderBottom: '1px solid var(--lumina-divider)',
             background: `linear-gradient(180deg, ${tint} 0%, var(--lumina-surface) 100%)`,
           }}
@@ -135,6 +139,25 @@ export default function SpaceDetailView({
             className="flex items-center gap-2"
             style={{ fontSize: 12.5, color: 'var(--lumina-text-dim)', marginBottom: 14 }}
           >
+            {/* Mobile-only sidebar hamburger. Sits next to the breadcrumb on
+                the left so users can reach the sidebar without a floating
+                button. Hidden on lg+ where the floating chevron is back. */}
+            <button
+              onClick={onToggleSidebar}
+              aria-label="Open sidebar"
+              className="lg:hidden flex items-center justify-center flex-shrink-0"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: 'var(--lumina-surface-alt)',
+                color: 'var(--lumina-text-dim)',
+                border: 'none',
+                marginRight: 4,
+              }}
+            >
+              <Menu size={18} />
+            </button>
             <button
               onClick={onBack}
               className="flex items-center gap-1 transition-colors"
@@ -242,17 +265,11 @@ export default function SpaceDetailView({
           </div>
         </div>
 
-        {/* Action cards row — four equal cards above the Sources section.
-            Matches the design mockup: each card surfaces a top-level action
-            you can take with this space. "Ask across this space" and
-            "Take an exam" are parked (disabled) until those features ship. */}
+        {/* Action cards — four cards above Sources. Stack vertically on
+            mobile (so labels + subtitles remain readable); switch to a
+            4-across grid on md+. */}
         <div
-          style={{
-            padding: '20px 48px 0',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: 12,
-          }}
+          className="grid gap-3 grid-cols-1 md:grid-cols-4 px-4 md:px-12 pt-5"
         >
           <ActionCard
             icon={<MessageSquare size={16} />}
@@ -286,7 +303,7 @@ export default function SpaceDetailView({
 
         {/* Flashcards — appears between the pills row and the Sources section. */}
         {!loadingAggregates && flashcardSets.length > 0 && flashcardsExpanded && (
-          <div style={{ padding: '20px 48px 0' }}>
+          <div className="px-4 md:px-12 pt-5">
             <SectionHeader title="Flashcards" count={flashcards.length} />
             <div className="flex flex-col gap-2">
               {flashcardSets.map((s) => (
@@ -306,7 +323,7 @@ export default function SpaceDetailView({
 
         {/* Quizzes — appears between the pills row and the Sources section. */}
         {!loadingAggregates && quizzes.length > 0 && quizzesExpanded && (
-          <div style={{ padding: '20px 48px 0' }}>
+          <div className="px-4 md:px-12 pt-5">
             <SectionHeader title="Quizzes" count={quizzes.length} />
             <div className="flex flex-col gap-2">
               {quizzes.map((q) => (
@@ -323,7 +340,7 @@ export default function SpaceDetailView({
         )}
 
         {/* Sources */}
-        <div style={{ padding: '24px 48px 32px' }}>
+        <div className="px-4 md:px-12 pt-6 pb-8">
           <div
             className="flex items-baseline justify-between"
             style={{ padding: '0 4px 16px' }}

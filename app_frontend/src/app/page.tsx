@@ -109,6 +109,7 @@ export default function Dashboard() {
   // popstate handler that the phone OS back button uses — keeping browser
   // history and React state perfectly in sync.
   const navigateToLibrary = useCallback(() => {
+    autoCollapseOnMobile();
     if (typeof window !== 'undefined' && window.history.state?.drilled) {
       window.history.back();
     } else {
@@ -120,6 +121,16 @@ export default function Dashboard() {
       setShowLibrary(true);
     }
   }, []);
+
+  // On mobile (< lg), the sidebar overlays the main content. When the user
+  // picks something from it, we want it to close automatically so they can
+  // see what they navigated to — otherwise they'd have to manually tap the
+  // backdrop / hamburger after every selection.
+  function autoCollapseOnMobile() {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsSidebarCollapsed(true);
+    }
+  }
 
   const deletingSpaceIds = useRef<Set<number>>(new Set());
 
@@ -370,6 +381,7 @@ export default function Dashboard() {
         chats={chats}
         spaces={spaces}
         onBack={navigateToLibrary}
+        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         onSelectChat={(c, target) => {
           // `target` carries the deep-link tab + identifier when the user
           // clicked a flashcard set or quiz row. Plain source-tile clicks
@@ -387,6 +399,7 @@ export default function Dashboard() {
     mainContent = (
       <EmptyState
         onNewChat={(kind, url) => openNewChatModal(kind, url)}
+        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
     );
   } else {
@@ -409,6 +422,7 @@ export default function Dashboard() {
           setShowLibrary(false);
         }}
         onCreateSpace={handleCreateSpace}
+        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
     );
   }
@@ -424,12 +438,14 @@ export default function Dashboard() {
         activeChat={activeChat}
         activeSpaceId={activeSpaceId}
         onSelectChat={(c) => {
+          autoCollapseOnMobile();
           setActiveChat(c);
           setActiveSpaceId(c.space_id ?? null);
           setViewingSpaceId(null);
           setShowLibrary(false);
         }}
         onSelectSpace={(id) => {
+          autoCollapseOnMobile();
           // Clicking a space in the sidebar opens its detail page (matches
           // the dashboard's space-tile behavior).
           setActiveSpaceId(id);
@@ -437,7 +453,10 @@ export default function Dashboard() {
           setActiveChat(null);
           setShowLibrary(false);
         }}
-        onNewChat={() => openNewChatModal()}
+        onNewChat={() => {
+          autoCollapseOnMobile();
+          openNewChatModal();
+        }}
         onDeleteChat={handleDeleteChat}
         onCreateSpace={handleCreateSpace}
         onDeleteSpace={handleDeleteSpace}

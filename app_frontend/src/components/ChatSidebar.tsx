@@ -139,19 +139,13 @@ export default function ChatSidebar({
   };
 
   // Collapsed: floating chevron in the top-left.
-  // - Desktop (lg+): always visible — the only way to reopen the sidebar.
-  // - Mobile/tablet: visible in Library / SpaceDetail / EmptyState
-  //   (which lack their own header toggle); hidden inside ChatView
-  //   because ChatView has its own in-header hamburger.
+  // Desktop (lg+) only — on mobile every main view has its own in-header
+  // hamburger, so the floating chevron would just clutter the corner.
   if (isCollapsed) {
-    const hideFloatingOnMobile = activeChat !== null;
     return (
       <button
         onClick={onToggleCollapse}
-        className={cn(
-          'fixed left-3 top-3 z-50 items-center justify-center transition-all hover:scale-105',
-          hideFloatingOnMobile ? 'hidden lg:flex' : 'flex',
-        )}
+        className="hidden lg:flex fixed left-3 top-3 z-50 items-center justify-center transition-all hover:scale-105"
         title="Show sidebar"
         aria-label="Show sidebar"
         style={{

@@ -874,8 +874,10 @@ export default function ChatView({
           </section>
         )}
 
-        {/* Content pane */}
-        <section className="flex-1 flex flex-col min-w-0">
+        {/* Content pane — min-h-0 is essential for mobile flex-col so the
+            inner overflow-y-auto can actually scroll. Without it the section
+            grows to fit its children and scrolling silently breaks. */}
+        <section className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Mobile-only source-pane toggle. Lets the user peek at the
               PDF / video / audio without losing the notes below it. Only
               renders when there's a source-pane to toggle, and only on
@@ -969,7 +971,7 @@ export default function ChatView({
           {activeTab === 'notes' && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div
-                className="flex items-center justify-between gap-2 flex-shrink-0"
+                className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0"
                 style={{ padding: '16px 28px 8px' }}
               >
                 <div
@@ -978,7 +980,7 @@ export default function ChatView({
                 >
                   <button
                     onClick={() => setNotesSubTab('ai')}
-                    className="flex items-center gap-1.5"
+                    className="flex items-center gap-1.5 whitespace-nowrap"
                     style={{
                       padding: '6px 12px',
                       borderRadius: 7,
@@ -989,13 +991,15 @@ export default function ChatView({
                       fontWeight: 500,
                       boxShadow: notesSubTab === 'ai' ? 'var(--lumina-shadow-sm)' : 'none',
                     }}
+                    aria-label="AI Generated"
+                    title="AI Generated"
                   >
                     <Bot size={13} />
-                    AI Generated
+                    <span className="hidden md:inline">AI Generated</span>
                   </button>
                   <button
                     onClick={() => setNotesSubTab('manual')}
-                    className="flex items-center gap-1.5"
+                    className="flex items-center gap-1.5 whitespace-nowrap"
                     style={{
                       padding: '6px 12px',
                       borderRadius: 7,
@@ -1006,9 +1010,11 @@ export default function ChatView({
                       fontWeight: 500,
                       boxShadow: notesSubTab === 'manual' ? 'var(--lumina-shadow-sm)' : 'none',
                     }}
+                    aria-label="My Notes"
+                    title="My Notes"
                   >
                     <PenLine size={13} />
-                    My Notes
+                    <span className="hidden md:inline">My Notes</span>
                   </button>
                 </div>
 
@@ -1020,20 +1026,23 @@ export default function ChatView({
                         setNotesCopied(true);
                         setTimeout(() => setNotesCopied(false), 2000);
                       }}
-                      className="lumina-btn-secondary flex items-center gap-1.5"
+                      className="lumina-btn-secondary flex items-center gap-1.5 whitespace-nowrap"
                       style={{ padding: '7px 12px', fontSize: 12.5 }}
+                      aria-label="Copy notes to clipboard"
                       title="Copy to clipboard"
                     >
                       {notesCopied ? <Check size={13} /> : <Copy size={13} />}
-                      {notesCopied ? 'Copied' : 'Copy'}
+                      <span className="hidden md:inline">{notesCopied ? 'Copied' : 'Copy'}</span>
                     </button>
                     <button
                       onClick={handleExportPDF}
-                      className="lumina-btn-secondary flex items-center gap-1.5"
+                      className="lumina-btn-secondary flex items-center gap-1.5 whitespace-nowrap"
                       style={{ padding: '7px 12px', fontSize: 12.5 }}
+                      aria-label="Export notes as PDF"
+                      title="Export as PDF"
                     >
                       <Download size={13} />
-                      Export
+                      <span className="hidden md:inline">Export</span>
                     </button>
                   </div>
                 )}

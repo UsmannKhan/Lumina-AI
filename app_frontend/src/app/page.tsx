@@ -73,6 +73,54 @@ export default function Dashboard() {
   // on the space-detail screen.
   const [viewingSpaceId, setViewingSpaceId] = useState<number | null>(null);
 
+  // ───── Mobile back-button integration ─────
+  // The app uses React state (not URLs) for navigation. Without history-API
+  // hooks the phone's back button just exits the whole app because there's
+  // nothing in browser history for it to pop. We push a dummy "drilled"
+  // history entry whenever the user opens a chat or a space, and listen for
+  // popstate so the back press closes that drilled view instead of exiting.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isDrilled = activeChat !== null || viewingSpaceId !== null;
+    const hasDrilledEntry = window.history.state?.drilled === true;
+    if (isDrilled && !hasDrilledEntry) {
+      window.history.pushState({ drilled: true }, '');
+    }
+  }, [activeChat?.id, viewingSpaceId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => {
+      // Back pressed while drilled-in — close the chat/space and return to
+      // the library/home root. Matches the behavior of the sidebar's
+      // "Library" button so both routes (phone back + in-app back) converge.
+      setActiveChat(null);
+      setActiveSpaceId(null);
+      setViewingSpaceId(null);
+      setShowLibrary(true);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Helper used by in-app back buttons (SpaceDetailView's "← Library"
+  // breadcrumb, sidebar's "Library" item). If we have a "drilled" history
+  // entry pushed, calling `history.back()` pops it and fires the same
+  // popstate handler that the phone OS back button uses — keeping browser
+  // history and React state perfectly in sync.
+  const navigateToLibrary = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.state?.drilled) {
+      window.history.back();
+    } else {
+      // No drilled entry to pop (e.g. user was already on Library) — set
+      // state directly as a safety net.
+      setActiveChat(null);
+      setActiveSpaceId(null);
+      setViewingSpaceId(null);
+      setShowLibrary(true);
+    }
+  }, []);
+
   const deletingSpaceIds = useRef<Set<number>>(new Set());
 
   const loadData = useCallback(async () => {
@@ -321,10 +369,7 @@ export default function Dashboard() {
         space={viewingSpace}
         chats={chats}
         spaces={spaces}
-        onBack={() => {
-          setViewingSpaceId(null);
-          setShowLibrary(true);
-        }}
+        onBack={navigateToLibrary}
         onSelectChat={(c, target) => {
           // `target` carries the deep-link tab + identifier when the user
           // clicked a flashcard set or quiz row. Plain source-tile clicks
@@ -402,12 +447,7 @@ export default function Dashboard() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         username={username || undefined}
-        onShowLibrary={() => {
-          setActiveChat(null);
-          setActiveSpaceId(null);
-          setViewingSpaceId(null);
-          setShowLibrary(true);
-        }}
+        onShowLibrary={navigateToLibrary}
         isLibraryActive={!activeChat && !viewingSpaceId && (showLibrary || hasNoSources)}
       />
 

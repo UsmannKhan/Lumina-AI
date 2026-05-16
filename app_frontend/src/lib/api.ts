@@ -1,4 +1,4 @@
-import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse, Flashcard, FlashcardUpdateRequest, FlashcardCreateRequest, SetRenameRequest, Space, SpaceWithChats } from '@/types';
+import { AuthTokens, Chat, Message, CreateChatResponse, CreateMessageResponse, FlashcardsResponse, GradeResponse, GradeRequest, QuizResponse, KeyConcept, FlashcardGenerateRequest, QuizzesListResponse, QuizGenerateRequest, GeneratedQuizResponse, CodeProblemsResponse, CodeEvaluateRequest, CodeEvaluationResponse, Flashcard, FlashcardUpdateRequest, FlashcardCreateRequest, SetRenameRequest, Space, SpaceWithChats, SpaceFlashcard, SpaceQuizSummary } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -236,6 +236,17 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ chat_id: chatId, space_id: spaceId }),
     });
+  }
+
+  /** Aggregated flashcards across every source in a space. Each item carries
+   *  `chat_id` + `chat_name` so the UI can group by source and link back. */
+  async getSpaceFlashcards(spaceId: number): Promise<SpaceFlashcard[]> {
+    return this.request<SpaceFlashcard[]>(`/spaces/${spaceId}/flashcards`);
+  }
+
+  /** Aggregated quiz summaries (metadata only) across every source in a space. */
+  async getSpaceQuizzes(spaceId: number): Promise<SpaceQuizSummary[]> {
+    return this.request<SpaceQuizSummary[]>(`/spaces/${spaceId}/quizzes`);
   }
 
   // Messages

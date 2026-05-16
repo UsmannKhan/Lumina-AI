@@ -86,7 +86,30 @@ interface MarkdownRendererProps {
     className?: string;
 }
 
+/** Repair markdown tables that arrive collapsed onto a single line.
+ *  Mirrors the backend's `fix_inline_tables` post-processor so this also
+ *  catches content that was stored in the DB BEFORE the backend fix shipped.
+ *  Only modifies lines with 6+ pipes AND a `| |` row-boundary, so plain prose
+ *  containing a stray pipe is left alone. */
+function fixInlineTables(md: string): string {
+    if (!md) return md;
+    return md
+        .split('\n')
+        .map((line) => {
+            const pipeCount = (line.match(/\|/g) || []).length;
+            if (pipeCount >= 6 && line.includes(' | |')) {
+                return line.replace(/ \| \|/g, ' |\n|');
+            }
+            return line;
+        })
+        .join('\n');
+}
+
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+    // Repair single-line tables from the LLM (or from stored content predating
+    // the backend fix) before handing off to react-markdown.
+    const repairedContent = useMemo(() => fixInlineTables(content), [content]);
+
     // Memoize components object so ReactMarkdown doesn't re-create it every render
     const components = useMemo(() => ({
         // @ts-expect-error - ReactMarkdown types for components are complex
@@ -125,7 +148,7 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
                 remarkPlugins={[remarkGfm]}
                 components={components as Components}
             >
-                {content}
+                {repairedContent}
             </ReactMarkdown>
         </div>
     );

@@ -18,9 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Lumina · turn anything you watch into something you remember',
+  title: 'Lumina · turn anything you see into something you remember',
   description:
-    'Drop in videos, PDFs, or articles. Lumina turns them into notes, flashcards, and a chat you can study with.',
+    'Drop in video links, documents, articles, audio or website links. Lumina turns them into notes, flashcards, quizzes, coding problems and more.',
 };
 
 export default function RootLayout({

@@ -46,6 +46,38 @@ export interface SpaceWithChats {
   chats: ChatBrief[];
 }
 
+/** Flashcard belonging to one of the sources in a space, with source
+ *  metadata flattened in so the UI can show "from <source>" labels. */
+export interface SpaceFlashcard {
+  id: number;
+  chat_id: number;
+  chat_name: string;
+  chat_source_type: string;
+  set_name: string | null;
+  question: string;
+  answer: string;
+  difficulty: 'easy' | 'medium' | 'hard' | null;
+  hint?: string | null;
+  explanation?: string | null;
+  timestamp?: string | null;
+  created_at: string | null;
+}
+
+/** Quiz summary (metadata only — no questions) belonging to one of the
+ *  sources in a space. Click through to the source chat for full contents. */
+export interface SpaceQuizSummary {
+  id: number;
+  chat_id: number;
+  chat_name: string;
+  chat_source_type: string;
+  set_name: string | null;
+  total_questions: number | null;
+  score: number | null;
+  completed: number | null;
+  difficulty: string | null;
+  created_at: string | null;
+}
+
 export interface ChatBrief {
   id: number;
   session_name: string;

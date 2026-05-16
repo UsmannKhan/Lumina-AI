@@ -64,7 +64,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
               color: 'var(--lumina-text)',
             }}
           >
-            Turn anything you watch into something you remember.
+            Turn anything you see into something you remember.
           </h1>
           <p
             style={{
@@ -74,7 +74,7 @@ export default function AuthPage({ onLogin, onRegister }: AuthPageProps) {
               margin: 0,
             }}
           >
-            Drop in videos, documents, articles, audio or website links. Lumina turns them into notes,
+            Drop in video links, documents, articles, audio or website links. Lumina turns them into notes,
             flashcards, quizzes, coding problems and more.
           </p>
         </div>

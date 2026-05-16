@@ -241,18 +241,111 @@ def move_chat_to_space(request: MoveChatRequest, user: user_dependency, db: Sess
 def get_space_chats(space_id: int, user: user_dependency, db: Session = Depends(get_db)):
     """Get all chats in a space (full chat objects)"""
     user_id = user.get('id')
-    
+
     # Verify space ownership
     space = db.query(models.Space).filter(
         models.Space.id == space_id,
         models.Space.user_id == user_id
     ).first()
-    
+
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
-    
+
     chats = db.query(models.Chat).filter(
         models.Chat.space_id == space_id
     ).order_by(models.Chat.created_at.desc()).all()
-    
+
     return chats
+
+
+@router.get("/{space_id}/flashcards")
+def get_space_flashcards(space_id: int, user: user_dependency, db: Session = Depends(get_db)):
+    """Get all flashcards across all chats in this space, with source metadata.
+
+    Aggregates per-source flashcards (no separate space-level cards exist yet).
+    Each card carries chat_name + chat_source_type so the frontend can group by
+    source and link back to the originating chat.
+    """
+    user_id = user.get('id')
+
+    # Verify ownership
+    space = db.query(models.Space).filter(
+        models.Space.id == space_id,
+        models.Space.user_id == user_id
+    ).first()
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found")
+
+    rows = (
+        db.query(models.Flashcard, models.Chat)
+        .join(models.Chat, models.Flashcard.chat_id == models.Chat.id)
+        .filter(
+            models.Chat.space_id == space_id,
+            models.Flashcard.user_id == user_id,
+        )
+        .order_by(models.Flashcard.id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": f.id,
+            "chat_id": f.chat_id,
+            "chat_name": c.session_name,
+            "chat_source_type": c.source_type,
+            "set_name": f.set_name,
+            "question": f.question,
+            "answer": f.answer,
+            "difficulty": f.difficulty,
+            "hint": f.hint,
+            "explanation": f.explanation,
+            "timestamp": f.timestamp,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f, c in rows
+    ]
+
+
+@router.get("/{space_id}/quizzes")
+def get_space_quizzes(space_id: int, user: user_dependency, db: Session = Depends(get_db)):
+    """Get all quizzes (metadata only, not questions) across all chats in this space.
+
+    Lightweight summary list — clients can fetch full quiz contents via
+    /quiz/{chat_id} when the user opens an individual quiz.
+    """
+    user_id = user.get('id')
+
+    # Verify ownership
+    space = db.query(models.Space).filter(
+        models.Space.id == space_id,
+        models.Space.user_id == user_id
+    ).first()
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found")
+
+    rows = (
+        db.query(models.Quiz, models.Chat)
+        .join(models.Chat, models.Quiz.chat_id == models.Chat.id)
+        .filter(
+            models.Chat.space_id == space_id,
+            models.Quiz.user_id == user_id,
+        )
+        .order_by(models.Quiz.id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": q.id,
+            "chat_id": q.chat_id,
+            "chat_name": c.session_name,
+            "chat_source_type": c.source_type,
+            "set_name": q.set_name,
+            "total_questions": q.total_questions,
+            "score": q.score,
+            "completed": q.completed,
+            "difficulty": q.difficulty,
+            "created_at": q.created_at.isoformat() if q.created_at else None,
+        }
+        for q, c in rows
+    ]

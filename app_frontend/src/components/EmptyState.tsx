@@ -24,7 +24,7 @@ const SOURCE_TYPES: { id: SourceKind; label: string; sub: string; icon: React.Re
   {
     id: 'pdf',
     label: 'PDF / Doc',
-    sub: 'PDF, DOCX, TXT',
+    sub: 'PDF, DOCX, TXT, PPTX',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
         <path

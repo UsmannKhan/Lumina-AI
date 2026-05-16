@@ -1,32 +1,3 @@
-# from .database import Base
-# from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
-# from datetime import datetime
-
-
-# class User(Base):
-#     __tablename__ = "users"
-
-#     id = Column(Integer, primary_key=True, nullable=False)
-#     username = Column(String, nullable=False, unique=True)
-#     hashed_password = Column(String, nullable=False)
-#     email = Column(String, nullable=False)
-
-
-# class Chat(Base):
-#     __tablename__ = "chats"
-
-#     id = Column(Integer, primary_key=True, nullable=False)
-#     youtube_id = Column(String, nullable=False)
-#     youtube_transcript = Column(Text, nullable=False)  # Plain text for AI
-#     youtube_transcript_timed = Column(Text, nullable=True)  # JSON string of timed segments
-#     prompt = Column(String, nullable=False)
-#     notes = Column(Text, nullable=False)
-#     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-#     session_name = Column(String, nullable=False)
-#     chat_style = Column(String, default="study")  # study, conversational, concise, custom
-#     custom_instructions = Column(Text, nullable=True)  # User's custom prompt when style is "custom"
-#     manual_notes = Column(Text, nullable=True)  # User's own notes
-
 from .database import Base
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.orm import relationship

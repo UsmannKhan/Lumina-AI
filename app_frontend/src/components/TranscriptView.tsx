@@ -140,7 +140,6 @@ export default function TranscriptView({
           playerRef.current = new window.YT.Player(iframe, {
             events: {
               onReady: () => {
-                console.log('YouTube player ready');
                 // Start tracking if video is already playing
                 if (playerRef.current?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING) {
                   setIsPlaying(true);
@@ -158,8 +157,8 @@ export default function TranscriptView({
               }
             }
           });
-        } catch (e) {
-          console.log('Player already initialized or error:', e);
+        } catch {
+          // Player already initialized or unavailable — safe to ignore
         }
       }
     };

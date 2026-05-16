@@ -23,6 +23,24 @@ export default function Dashboard() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [activeSpaceId, setActiveSpaceId] = useState<number | null>(null);
+  // Deep-link target for the next chat opened — e.g. when the user clicks
+  // a flashcard set or quiz row in SpaceDetailView, this carries enough
+  // info for ChatView to open on the right tab AND auto-start the exact
+  // set/quiz the user clicked.
+  type PendingDeepLink =
+    | { tab: 'flashcards'; setName: string }
+    | { tab: 'quiz'; quizId: number };
+  const [pendingDeepLink, setPendingDeepLink] = useState<PendingDeepLink | null>(null);
+
+  // Clear the deep-link target once a chat opens with it — its props are
+  // captured on first render, and we don't want a stale value affecting
+  // subsequent navigations from the sidebar/library.
+  useEffect(() => {
+    if (pendingDeepLink !== null) {
+      setPendingDeepLink(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChat?.id]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   // Optional source-type pre-selection for the new-chat modal.
@@ -284,6 +302,13 @@ export default function Dashboard() {
         isSending={isSendingMessage}
         spaceName={activeSpaceName}
         spaceId={activeChat.space_id ?? null}
+        initialTab={pendingDeepLink?.tab}
+        initialFlashcardSetName={
+          pendingDeepLink?.tab === 'flashcards' ? pendingDeepLink.setName : undefined
+        }
+        initialQuizId={
+          pendingDeepLink?.tab === 'quiz' ? pendingDeepLink.quizId : undefined
+        }
       />
     );
   } else if (viewingSpace) {
@@ -296,7 +321,11 @@ export default function Dashboard() {
           setViewingSpaceId(null);
           setShowLibrary(true);
         }}
-        onSelectChat={(c) => {
+        onSelectChat={(c, target) => {
+          // `target` carries the deep-link tab + identifier when the user
+          // clicked a flashcard set or quiz row. Plain source-tile clicks
+          // pass undefined so the chat opens on Notes.
+          setPendingDeepLink(target ?? null);
           setActiveChat(c);
           setActiveSpaceId(c.space_id ?? null);
           setViewingSpaceId(null);

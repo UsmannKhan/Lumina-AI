@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import { jsPDF } from 'jspdf';
 import { Chat, Message, TranscriptSegment } from '@/types';
 import { cn } from '@/lib/utils';
@@ -61,6 +61,8 @@ const TextViewer = dynamic(() => import('./TextViewer'), {
   ),
 });
 
+type ActiveTab = 'notes' | 'chat' | 'flashcards' | 'quiz' | 'code';
+
 interface ChatViewProps {
   chat: Chat;
   messages: Message[];
@@ -70,9 +72,16 @@ interface ChatViewProps {
   isSending: boolean;
   spaceName?: string | null;
   spaceId?: number | null;
+  /** Optional deep-link target for the active tab. When provided, the chat
+   *  view opens directly on that tab instead of the default Notes tab. */
+  initialTab?: ActiveTab;
+  /** When `initialTab` is 'flashcards', auto-start this set instead of
+   *  landing on the set list. */
+  initialFlashcardSetName?: string;
+  /** When `initialTab` is 'quiz', auto-start this quiz instead of landing
+   *  on the quiz list. */
+  initialQuizId?: number;
 }
-
-type ActiveTab = 'notes' | 'chat' | 'flashcards' | 'quiz' | 'code';
 
 const TABS: { id: ActiveTab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'notes', label: 'Notes', icon: FileText },
@@ -92,6 +101,25 @@ function sourceMeta(chat: Chat) {
   return 'Source';
 }
 
+/** Renders an audio transcript with `**bold**` markdown markers turned into
+ *  real <strong> elements. We deliberately do NOT use the full
+ *  MarkdownRenderer here — we want the whitespace-pre-wrap layout (each
+ *  newline preserved as a real line break) which a paragraph-block markdown
+ *  renderer would collapse. Only the speaker-label bold is special-cased. */
+function renderTranscriptWithBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*\n]+?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} style={{ color: 'var(--lumina-text)', fontWeight: 600 }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
 export default function ChatView({
   chat,
   messages,
@@ -101,9 +129,12 @@ export default function ChatView({
   isSending,
   spaceName,
   spaceId,
+  initialTab,
+  initialFlashcardSetName,
+  initialQuizId,
 }: ChatViewProps) {
   const [input, setInput] = useState('');
-  const [activeTab, setActiveTab] = useState<ActiveTab>('notes');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab ?? 'notes');
   const [isStudyDropdownOpen, setIsStudyDropdownOpen] = useState(false);
   const [isVideoExpanded, setIsVideoExpanded] = useState(false);
   const [transcriptMode, setTranscriptMode] = useState<'collapsed' | 'compact' | 'full'>('compact');
@@ -143,6 +174,16 @@ export default function ChatView({
     setAttachedQuote(null);
     setNotesSubTab('ai');
   }, [chat.id, chat.manual_notes, chat.chat_style, chat.custom_instructions]);
+
+  // Deep-link: if a target tab was provided (e.g., from the space detail
+  // view's "Review flashcards" / "Take a quiz" rows), jump to it whenever
+  // the chat changes. No-op if initialTab is undefined, so normal sidebar
+  // navigation preserves the user's current tab.
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [chat.id, initialTab]);
 
   useEffect(() => {
     if (activeTab === 'chat') {
@@ -779,7 +820,10 @@ export default function ChatView({
               </div>
             )}
 
-            {/* Audio transcript — plain text from the audio source. */}
+            {/* Audio transcript — plain text from the audio source.
+                Bold markers (e.g. **Speaker:**) emitted by the AI are
+                rendered as real <strong> elements while preserving the
+                whitespace-pre-wrap line breaks. */}
             {isAudio && chat.source_content && (
               <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div
@@ -806,7 +850,7 @@ export default function ChatView({
                       margin: 0,
                     }}
                   >
-                    {chat.source_content}
+                    {renderTranscriptWithBold(chat.source_content)}
                   </p>
                 </div>
               </div>
@@ -940,7 +984,7 @@ export default function ChatView({
                       className="mx-auto"
                       style={{ maxWidth: 720, padding: '20px 28px 32px' }}
                     >
-                      <ReactMarkdown>{chat.notes}</ReactMarkdown>
+                      <MarkdownRenderer content={chat.notes} />
                     </div>
                   </div>
                 ) : (
@@ -960,11 +1004,11 @@ export default function ChatView({
           )}
 
           {activeTab === 'flashcards' && (
-            <FlashcardsView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} />
+            <FlashcardsView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} initialSetName={initialFlashcardSetName} />
           )}
 
           {activeTab === 'quiz' && (
-            <QuizView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} />
+            <QuizView chatId={chat.id} videoTitle={chat.session_name} sourceType={chat.source_type} initialQuizId={initialQuizId} />
           )}
 
           {activeTab === 'code' && <CodePracticeView chatId={chat.id} />}
@@ -1092,7 +1136,7 @@ export default function ChatView({
                                 background: 'var(--lumina-surface-alt)',
                               }}
                             >
-                              <ReactMarkdown>{message.output}</ReactMarkdown>
+                              <MarkdownRenderer content={message.output} />
                             </div>
                           </div>
                         )}

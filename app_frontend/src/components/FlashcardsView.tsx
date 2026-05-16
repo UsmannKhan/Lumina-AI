@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { SparklesIcon } from './Icons';
+import React, { useState, useEffect, useRef } from 'react';
 import Button from './Button';
 import { api } from '@/lib/api';
 import { Flashcard, KeyConcept, FlashcardCreateRequest } from '@/types';
 import clsx from 'clsx';
-import { Shuffle, ChevronLeft, ChevronRight, RotateCcw, Loader2, RefreshCw, Lightbulb, Clock, Info, Settings, X, Pencil, Trash2, Plus, Check, ArrowUp, ArrowDown, Save } from 'lucide-react';
+import { Shuffle, ChevronLeft, ChevronRight, RotateCcw, Loader2, RefreshCw, Lightbulb, Clock, Info, Settings, X, Pencil, Trash2, Plus, Check, ArrowUp, ArrowDown, Save, Layers } from 'lucide-react';
 
 interface FlashcardsViewProps {
   chatId: number;
   videoTitle: string;
   sourceType?: string; // 'youtube', 'pdf', 'text'
+  /** Optional deep-link: when this matches an existing set's name, the
+   *  view auto-starts study mode for that set as soon as data loads,
+   *  skipping the config/list screen. */
+  initialSetName?: string;
 }
 
-export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtube' }: FlashcardsViewProps) {
+export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtube', initialSetName }: FlashcardsViewProps) {
   const isYouTube = sourceType === 'youtube';
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,6 +68,41 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
     setViewMode('config');
     loadConceptsAndSets();
   }, [chatId]);
+
+  // Deep-link: capture `initialSetName` into a ref on first render per
+  // chat. The parent (page.tsx) clears its `pendingDeepLink` state right
+  // after activeChat changes — synchronously, before our async data load
+  // finishes — so we can't rely on the prop still being there when
+  // `existingSets` populates. The ref-snapshot survives that clear.
+  const targetSetNameRef = useRef<{ chatId: number; setName: string } | null>(null);
+  if (initialSetName && targetSetNameRef.current?.chatId !== chatId) {
+    targetSetNameRef.current = { chatId, setName: initialSetName };
+  }
+
+  const autoStartedForChatRef = useRef<number | null>(null);
+  useEffect(() => {
+    const target = targetSetNameRef.current;
+    if (
+      !target ||
+      target.chatId !== chatId ||
+      autoStartedForChatRef.current === chatId ||
+      existingSets.length === 0
+    ) {
+      return;
+    }
+    const cardsForSet = existingSets.filter((c) => c.set_name === target.setName);
+    if (cardsForSet.length === 0) {
+      // Set might have been deleted between the space-view fetch and the
+      // chat-view mount — silently fall back to the config/list view.
+      autoStartedForChatRef.current = chatId;
+      return;
+    }
+    setFlashcards(cardsForSet);
+    setActiveSetName(target.setName);
+    setCurrentIndex(0);
+    setViewMode('study');
+    autoStartedForChatRef.current = chatId;
+  }, [existingSets, chatId]);
 
 
 
@@ -421,28 +459,62 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
     return (
       <div className="flex-1 overflow-y-auto p-4 2xl:p-8">
         <div className="max-w-xl 2xl:max-w-5xl mx-auto">
-          {/* Centered Header */}
-          <h2 className="text-base 2xl:text-xl font-display font-semibold text-gray-800 text-center mb-3 2xl:mb-6">Generate Flashcards</h2>
+          {/* Hero — matches the quiz/code-practice setup hero pattern:
+              accent-tinted square with a single icon, title, sub-description. */}
+          <div className="text-center" style={{ marginBottom: 20 }}>
+            <div
+              className="inline-flex items-center justify-center"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'var(--lumina-accent-soft)',
+                color: 'var(--lumina-accent)',
+                marginBottom: 12,
+              }}
+            >
+              <Layers size={20} />
+            </div>
+            <h2
+              className="font-semibold"
+              style={{
+                fontSize: 22,
+                letterSpacing: '-0.5px',
+                margin: '0 0 6px',
+                color: 'var(--lumina-text)',
+              }}
+            >
+              Flashcards
+            </h2>
+            <p style={{ fontSize: 13.5, color: 'var(--lumina-text-dim)', margin: 0 }}>
+              Create cards to drill key concepts from this source.
+            </p>
+          </div>
 
           {isLoadingConfig ? (
-            // Skeleton Loading
-            <div className="space-y-4 animate-pulse">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="h-3 bg-gray-700 rounded w-12 mb-2" />
-                  <div className="h-4 bg-gray-700 rounded w-full" />
-                </div>
-                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="h-3 bg-gray-700 rounded w-12 mb-2" />
-                  <div className="h-4 bg-gray-700 rounded w-full" />
+            // Skeleton — mirrors the real form layout below: two stacked
+            // config cards (Cards slider + Topics list), two input rows
+            // (Focus + Set name), and a centered Generate button.
+            <div className="space-y-2 2xl:space-y-4 animate-pulse">
+              {/* Cards slider card */}
+              <div className="p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                <div className="h-3 bg-gray-200 rounded w-16 mb-2" />
+                <div className="h-2 bg-gray-200 rounded-full w-full" />
+              </div>
+              {/* Topics card */}
+              <div className="p-2.5 2xl:p-4 bg-white rounded-lg 2xl:rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="h-3 bg-gray-200 rounded w-16" />
+                  <div className="h-3 bg-gray-200 rounded w-20" />
                 </div>
               </div>
-              <div className="h-10 bg-gray-700/50 rounded-xl" />
-              <div className="h-10 bg-gray-700/50 rounded-xl" />
-              <div className="h-10 bg-[#0C115B]/20 rounded-xl" />
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="h-4 bg-gray-700 rounded w-32 mb-3" />
-                <div className="h-16 bg-gray-700/50 rounded-xl" />
+              {/* Focus input */}
+              <div className="h-9 2xl:h-10 bg-gray-100 border border-gray-200 rounded-lg 2xl:rounded-xl" />
+              {/* Set name input */}
+              <div className="h-9 2xl:h-10 bg-gray-100 border border-gray-200 rounded-lg 2xl:rounded-xl" />
+              {/* Generate button (centered, narrower) */}
+              <div className="flex justify-center pt-1">
+                <div className="h-9 2xl:h-10 w-44 bg-gray-200 rounded-lg 2xl:rounded-xl" />
               </div>
             </div>
           ) : (
@@ -553,10 +625,7 @@ export default function FlashcardsView({ chatId, videoTitle, sourceType = 'youtu
                       Generating...
                     </>
                   ) : (
-                    <>
-                      <SparklesIcon size={16} className="mr-2" />
-                      Generate {cardCount} Cards
-                    </>
+                    <>Generate {cardCount} Cards</>
                   )}
                 </Button>
               </div>

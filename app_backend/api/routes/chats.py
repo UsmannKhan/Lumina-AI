@@ -11,6 +11,7 @@ from ..database import get_db
 from ..config import user_dependency
 from ..gemini_client import client
 from google.genai import types
+import re
 import requests
 import json
 import os
@@ -26,7 +27,8 @@ from supabase import create_client, Client
 # Supabase Storage client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Use service key for storage operations
-PDF_BUCKET = "pdfs"  # Bucket name in Supabase Storage
+PDF_BUCKET = "pdfs"      # Bucket name for PDFs / DOCX-converted-to-PDF / arxiv downloads
+AUDIO_BUCKET = "audio"   # Separate bucket for audio uploads (different MIME-type allow-list)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
@@ -47,6 +49,13 @@ NOTES_PROMPT = """You are an expert study assistant. Analyze this YouTube video 
 
 ## Your Goal:
 Create the kind of notes a top student would take — thorough, well-organized, and genuinely useful for understanding and revising this material. Go deep on important topics, explain relationships between ideas, and don't just skim the surface.
+
+## Depth Requirements (IMPORTANT):
+- For each substantial topic the video covers, produce 3-5 substantive paragraphs OR a detailed bulleted breakdown — NEVER a single sentence summary.
+- Explain the WHY behind claims, methods, and decisions — not just the WHAT.
+- Capture specific numbers, parameters, examples, and quotes from the transcript verbatim. Do not summarize these away.
+- Don't skip "boring" sections like background, setup, prerequisites, or caveats — those are often the ones students need most.
+- Target output length: roughly 30-40% of the substantive transcript length. A 60-minute lecture should produce dense, multi-page notes, not a one-page outline.
 
 ## Structure:
 - Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
@@ -70,6 +79,18 @@ Create the kind of notes a top student would take — thorough, well-organized, 
 - Use bullet points and numbered lists, only where appropriate, for clarity
 - Do NOT start with opening filler phrases like "Here are notes from the video:"
 - DO NOT include any sponsors, promotional content, patreon links, or unrelated information.
+
+## CRITICAL — Table formatting:
+Every markdown table row MUST be on its own line, separated by ACTUAL newline characters. NEVER put multiple rows on the same line — markdown parsers cannot render compressed tables.
+
+CORRECT (each row on its own line):
+| Header 1 | Header 2 |
+| :--- | :--- |
+| Row 1A | Row 1B |
+| Row 2A | Row 2B |
+
+WRONG (do NOT do this):
+| Header 1 | Header 2 | | :--- | :--- | | Row 1A | Row 1B | | Row 2A | Row 2B |
 
 ## Key Concepts Section (REQUIRED — must be the LAST section):
 Use heading: ## Key Concepts
@@ -101,47 +122,37 @@ def parse_key_concepts(notes: str) -> list:
     Or for PDF/website: - **[Concept Title]**: Brief description
     """
     import re
-    
+
     concepts = []
-    
-    print(f"\n=== DEBUG: Parsing key concepts ===")
-    print(f"Notes length: {len(notes)}")
-    
+
     # Look for the Key Concepts section — try multiple heading formats
     key_concepts_section = None
-    
+
     # Pattern 1: ## Key Concepts (markdown heading)
     match = re.search(r'##\s*Key Concepts.*?(?=##|\Z)', notes, re.DOTALL | re.IGNORECASE)
     if match:
         key_concepts_section = match.group()
-        print(f"DEBUG: Found '## Key Concepts' section ({len(key_concepts_section)} chars)")
-    
+
     # Pattern 2: **Key Concepts** (bold heading, no ##)
     if not key_concepts_section:
         match = re.search(r'\*\*Key Concepts\*\*\s*\n(.*?)(?=\n\s*\*\*[A-Z][^*]*\*\*\s*\n|\Z)', notes, re.DOTALL | re.IGNORECASE)
         if match:
             key_concepts_section = match.group()
-            print(f"DEBUG: Found '**Key Concepts**' section ({len(key_concepts_section)} chars)")
-    
+
     # Pattern 3: "Key Concepts" as a line on its own (e.g., "Key Concepts\n")
     if not key_concepts_section:
         match = re.search(r'^Key Concepts\s*\n(.*?)(?=\n[A-Z].*\n[-=]|\Z)', notes, re.DOTALL | re.MULTILINE | re.IGNORECASE)
         if match:
             key_concepts_section = match.group()
-            print(f"DEBUG: Found 'Key Concepts' plain heading ({len(key_concepts_section)} chars)")
-    
+
     if not key_concepts_section:
-        print("DEBUG: No Key Concepts section found in any format")
         return concepts
-    
-    print(key_concepts_section[:500])
-    
+
     # PATTERN 1: YouTube format with timestamps
     # Format: - **ConceptName** (MM:SS - MM:SS): Description
     timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
     matches = re.findall(timestamp_pattern, key_concepts_section, re.DOTALL)
-    print(f"DEBUG: Found {len(matches)} matches with timestamp pattern (YouTube)")
-    
+
     if matches:
         # Convert MM:SS to seconds helper
         def time_to_seconds(time_str):
@@ -149,7 +160,7 @@ def parse_key_concepts(notes: str) -> list:
             if len(parts) == 2:
                 return int(parts[0]) * 60 + int(parts[1])
             return 0
-        
+
         for title, start_str, end_str, description in matches:
             concepts.append({
                 'title': title.strip(),
@@ -158,14 +169,12 @@ def parse_key_concepts(notes: str) -> list:
                 'end_time': time_to_seconds(end_str),
                 'importance': 2
             })
-            print(f"DEBUG: Extracted concept (YouTube): {title.strip()}")
     else:
         # PATTERN 2: PDF/website format without timestamps
         # Format: - **ConceptName**: Description
         no_timestamp_pattern = r'(?:[-*]\s*)\*\*([^*]+)\*\*\s*:\s*(.+?)(?=\n\s*[-*]\s*\*\*|\n\n|\Z)'
         no_ts_matches = re.findall(no_timestamp_pattern, key_concepts_section, re.DOTALL)
-        print(f"DEBUG: Found {len(no_ts_matches)} matches with no-timestamp pattern (PDF/website)")
-        
+
         for title, description in no_ts_matches:
             concepts.append({
                 'title': title.strip(),
@@ -174,9 +183,7 @@ def parse_key_concepts(notes: str) -> list:
                 'end_time': None,
                 'importance': 2
             })
-            print(f"DEBUG: Extracted concept (PDF): {title.strip()}")
-    
-    print(f"=== DEBUG: Parsed {len(concepts)} concepts ===\n")
+
     return concepts
 
 
@@ -215,9 +222,7 @@ def get_transcript_data(video_url: str) -> dict:
         raise HTTPException(status_code=response.status_code, detail=f"Failed to fetch transcript: {response.text}")
     
     data = response.json()
-    
-    print("Transcript API response structure:", type(data), "content" in data if isinstance(data, dict) else "N/A")
-    
+
     if "content" in data and isinstance(data["content"], list):
         segments = data["content"]
         
@@ -260,14 +265,9 @@ def get_transcript_data(video_url: str) -> dict:
 def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependency, db: Session = Depends(get_db)):
     video_id = get_videoid(chat.youtube_link)
 
-    print("Video ID:", video_id)
-
     transcript_data = get_transcript_data(chat.youtube_link)
     plain_text = transcript_data["plain_text"]
     timed_segments = transcript_data["timed_segments"]
-
-    print("Transcript length:", len(plain_text))
-    print("Timed segments count:", len(timed_segments))
 
     # Format timed transcript for AI with timestamps
     def format_timed_transcript(segments):
@@ -284,14 +284,15 @@ def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependenc
 
     # Generate notes with improved prompt (using timed transcript)
     response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-3.1-pro-preview",
         contents=NOTES_PROMPT.format(timed_transcript=timed_transcript_text),
         config=types.GenerateContentConfig(
             thinking_config=types.ThinkingConfig(thinking_level="HIGH")
         ),
     )
     notes = response.text
-    
+    notes = fix_inline_tables(notes)
+
     # Get video title using YouTube oEmbed (fast, no LLM needed)
     session_name = get_video_title(chat.youtube_link)
 
@@ -333,8 +334,7 @@ def create_chat(request: Request, chat: schemas.CreateChat, user: user_dependenc
     
     if concepts_data:
         db.commit()
-        print(f"Saved {len(concepts_data)} key concepts")
-    
+
     return {
         "id": new_chat.id,
         "video_id": video_id,
@@ -351,6 +351,14 @@ PDF_NOTES_PROMPT = """You are an expert study assistant. Analyze this document a
 
 ## Your Goal:
 Create thorough, well-organized notes that fully capture the depth of this document. Go deep on important sections — explain methodology, analyze results, discuss implications. Don't just list surface-level bullet points.
+
+## Depth Requirements (IMPORTANT):
+- For each major section of the source, produce 3-5 substantive paragraphs OR a detailed bulleted breakdown — NEVER a single sentence summary.
+- Always explain the WHY behind decisions, claims, methodologies, or results — not just the WHAT.
+- Capture specific numbers, equations, parameters, hyperparameters, dataset details, and examples from the source verbatim. Do NOT summarize these away.
+- Always cover "boring" sections too: experimental setup, training details, hyperparameters, ablations, limitations, related work, future work. Those are often what students need most for exams.
+- Target output length: roughly 30-40% of the substantive document length. A dense 15-page research paper should produce ~5-6 pages of notes, not 2 pages.
+- If the document has multiple experiments, ablations, or model variants — describe EACH one and what was learned, don't lump them together.
 
 ## Structure:
 - Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
@@ -374,11 +382,24 @@ Create thorough, well-organized notes that fully capture the depth of this docum
 - Use bullet points and numbered lists, only where appropriate, for clarity
 - Do NOT start with opening filler phrases like "Here are comprehensive notes:"
 
+## CRITICAL — Table formatting:
+Every markdown table row MUST be on its own line, separated by ACTUAL newline characters. NEVER put multiple rows on the same line — markdown parsers cannot render compressed tables.
+
+CORRECT (each row on its own line):
+| Header 1 | Header 2 |
+| :--- | :--- |
+| Row 1A | Row 1B |
+| Row 2A | Row 2B |
+
+WRONG (do NOT do this):
+| Header 1 | Header 2 | | :--- | :--- | | Row 1A | Row 1B | | Row 2A | Row 2B |
+
 ## Key Concepts Section (REQUIRED — must be the LAST section):
 Use heading: ## Key Concepts
 Use this EXACT format for each concept on its own line:
   - **ConceptName**: Brief one-line description
 IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+For audio/podcast content that teaches vocabulary while discussing a topic (e.g., language-learning shows), prioritize concepts about the SUBJECT MATTER being discussed — not the vocabulary words being taught.
 
 ## Document Content:
 {content}
@@ -397,6 +418,14 @@ Pay special attention to visual content:
 - **Diagrams & Flowcharts**: Explain the process or architecture they depict.
 - **Equations**: Explain what each important equation represents in context, not just its mathematical form.
 
+## Depth Requirements (IMPORTANT):
+- For each major section of the document, produce 3-5 substantive paragraphs OR a detailed bulleted breakdown — NEVER a single sentence summary.
+- Always explain the WHY behind decisions, claims, methodologies, or results — not just the WHAT.
+- Capture specific numbers, equations, parameters, hyperparameters, dataset details, and examples from the source verbatim. Do NOT summarize these away.
+- Always cover "boring" sections too: experimental setup, training details, hyperparameters, ablations, limitations, related work, future work. Those are often what students need most for exams.
+- Target output length: roughly 30-40% of the substantive document length. A dense 15-page research paper should produce ~5-6 pages of notes, not 2 pages.
+- If the document has multiple experiments, ablations, or model variants — describe EACH one and what was learned, don't lump them together.
+
 ## Structure:
 - Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
 - Then create your own logical sections with descriptive headings that reflect the document's actual content. Do NOT follow a generic template — adapt the structure to fit the material. For example:
@@ -418,6 +447,18 @@ Pay special attention to visual content:
   ```
 - Use bullet points and numbered lists, only where appropriate, for clarity
 - Do NOT start with opening filler phrases like "Here are comprehensive notes:"
+
+## CRITICAL — Table formatting:
+Every markdown table row MUST be on its own line, separated by ACTUAL newline characters. NEVER put multiple rows on the same line — markdown parsers cannot render compressed tables.
+
+CORRECT (each row on its own line):
+| Header 1 | Header 2 |
+| :--- | :--- |
+| Row 1A | Row 1B |
+| Row 2A | Row 2B |
+
+WRONG (do NOT do this):
+| Header 1 | Header 2 | | :--- | :--- | | Row 1A | Row 1B | | Row 2A | Row 2B |
 
 ## Key Concepts Section (REQUIRED — must be the LAST section):
 Use heading: ## Key Concepts
@@ -440,6 +481,31 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
     
     doc.close()
     return "\n\n".join(text_parts)
+
+
+def fix_inline_tables(md: str) -> str:
+    """Repair markdown tables that Gemini sometimes outputs on a single line.
+
+    Symptom: instead of one row per line, the model emits all rows joined by
+    `| |` boundaries on a single line. Standard markdown parsers can't render
+    this as a table. This pass detects table-like lines (many pipes, multiple
+    `| |` boundaries) and splits them at the row boundaries.
+
+    Safe on already-correct markdown — only modifies lines that look like
+    collapsed tables (6+ pipes AND at least one `| |` boundary on the line).
+    """
+    if not md:
+        return md
+    lines = md.split('\n')
+    out: list[str] = []
+    for line in lines:
+        # Only touch lines that look like compressed tables. Six+ pipes
+        # combined with a `| |` boundary is the unambiguous signature.
+        if line.count('|') >= 6 and ' | |' in line:
+            # End of one row (` |`) followed by start of next (`| `).
+            line = re.sub(r' \| \|', ' |\n|', line)
+        out.append(line)
+    return '\n'.join(out)
 
 
 # Allowed file extensions for document uploads
@@ -475,6 +541,13 @@ Create thorough, well-organized study notes based on the audio content.
 ## Your Goal:
 Create the kind of notes a top student would take — thorough, well-organized, and genuinely useful for understanding and revising this material. Go deep on important topics, explain relationships between ideas.
 
+## Depth Requirements (IMPORTANT):
+- For each substantial topic the audio covers, produce 3-5 substantive paragraphs OR a detailed bulleted breakdown — NEVER a single sentence summary.
+- Explain the WHY behind claims, methods, and decisions — not just the WHAT.
+- Capture specific numbers, parameters, examples, and direct quotes from the audio verbatim. Do not summarize these away.
+- Don't skip background or caveats — they're often what students need most for context.
+- Target output length: roughly 30-40% of the substantive transcript length.
+
 ## Structure:
 - Start with a brief **Summary** (2-4 sentences) with a "Summary" heading.
 - Then create your own logical sections with descriptive headings based on what the content actually covers.
@@ -488,11 +561,24 @@ Create the kind of notes a top student would take — thorough, well-organized, 
 - Include Mermaid diagrams wherever they help understanding. Use ONLY these safe types: flowchart, graph, sequenceDiagram, classDiagram, mindmap. Always quote node labels containing special characters.
 - Use bullet points and numbered lists, only where appropriate, for clarity
 
+## CRITICAL — Table formatting:
+Every markdown table row MUST be on its own line, separated by ACTUAL newline characters. NEVER put multiple rows on the same line — markdown parsers cannot render compressed tables.
+
+CORRECT (each row on its own line):
+| Header 1 | Header 2 |
+| :--- | :--- |
+| Row 1A | Row 1B |
+| Row 2A | Row 2B |
+
+WRONG (do NOT do this):
+| Header 1 | Header 2 | | :--- | :--- | | Row 1A | Row 1B |
+
 ## Key Concepts Section (REQUIRED — must be the LAST section):
 Use heading: ## Key Concepts
 Use this EXACT format for each concept on its own line:
   - **ConceptName**: Brief one-line description
 IMPORTANT: Each concept MUST start with `- **` (dash, space, double asterisk). Do NOT use `*` bullet points.
+If the audio is a language-learning piece that uses a topic as a vehicle to teach vocabulary, prioritize concepts about the SUBJECT MATTER being discussed (e.g., the science, the history) — NOT the vocabulary words being explicitly taught.
 """
 
 
@@ -530,7 +616,7 @@ def generate_notes_from_pdf(pdf_bytes: bytes, display_name: str, fallback_text: 
     try:
         pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-3.1-pro-preview",
             contents=[pdf_part, PDF_VISION_NOTES_PROMPT],
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH")
@@ -540,7 +626,7 @@ def generate_notes_from_pdf(pdf_bytes: bytes, display_name: str, fallback_text: 
     except Exception as e:
         print(f"Warning: PDF vision failed ({e}), falling back to text-only")
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-3.1-pro-preview",
             contents=PDF_NOTES_PROMPT.format(content=fallback_text),
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH")
@@ -656,7 +742,7 @@ def create_chat_from_file(
         else:
             # TXT files — text only
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-3.1-pro-preview",
                 contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_level="HIGH")
@@ -668,17 +754,20 @@ def create_chat_from_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate notes: {str(e)}"
         )
-    
+
+    notes = fix_inline_tables(notes)
+
     # For PDFs, upload to Supabase Storage for viewer
     # For TXT, we just store the text content (no need for storage)
     source_id = None
+    uploaded_storage_path = None  # Track for rollback if DB commit fails
     if source_type == "pdf":
         if not supabase:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Storage not configured"
             )
-        
+
         pdf_id = str(uuid.uuid4())
         try:
             storage_path = f"{user['id']}/{pdf_id}.pdf"
@@ -688,28 +777,42 @@ def create_chat_from_file(
                 file_options={"content-type": "application/pdf"}
             )
             source_id = pdf_id
+            uploaded_storage_path = storage_path
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to upload PDF: {str(e)}"
             )
 
-    # Create chat record
-    new_chat = models.Chat(
-        source_type=source_type,
-        source_id=source_id,  # UUID for PDFs, None for TXT
-        source_url=None,
-        source_content=file_text,
-        timed_content=None,
-        prompt=PDF_NOTES_PROMPT.format(content="[document content]"),
-        notes=notes,
-        user_id=user['id'],
-        space_id=space_id_int,
-        session_name=session_name
-    )
-    db.add(new_chat)
-    db.commit()
-    db.refresh(new_chat)
+    # Create chat record. If the DB commit fails after the file was already
+    # uploaded to Supabase, roll back the upload so we don't leak orphan files.
+    try:
+        new_chat = models.Chat(
+            source_type=source_type,
+            source_id=source_id,  # UUID for PDFs, None for TXT
+            source_url=None,
+            source_content=file_text,
+            timed_content=None,
+            prompt=PDF_NOTES_PROMPT.format(content="[document content]"),
+            notes=notes,
+            user_id=user['id'],
+            space_id=space_id_int,
+            session_name=session_name
+        )
+        db.add(new_chat)
+        db.commit()
+        db.refresh(new_chat)
+    except Exception as e:
+        db.rollback()
+        if uploaded_storage_path and supabase:
+            try:
+                supabase.storage.from_(PDF_BUCKET).remove([uploaded_storage_path])
+            except Exception as cleanup_err:
+                print(f"Warning: Failed to clean up orphan upload {uploaded_storage_path}: {cleanup_err}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save chat: {str(e)}"
+        )
     
     # Parse and save key concepts from notes
     concepts_data = parse_key_concepts(notes)
@@ -932,7 +1035,7 @@ def create_chat_from_website(
         else:
             # HTML website — text only
             ai_response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-3.1-pro-preview",
                 contents=PDF_NOTES_PROMPT.format(content=content_for_ai),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_level="HIGH")
@@ -944,7 +1047,9 @@ def create_chat_from_website(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate notes: {str(e)}"
         )
-    
+
+    notes = fix_inline_tables(notes)
+
     # Create chat record
     new_chat = models.Chat(
         source_type=source_type,
@@ -1041,7 +1146,7 @@ def create_chat_from_audio(
     try:
         audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-3.1-pro-preview",
             contents=[audio_part, AUDIO_NOTES_PROMPT],
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH")
@@ -1063,14 +1168,17 @@ def create_chat_from_audio(
         # Fallback: treat entire response as notes, no separate transcript
         transcript = ""
         notes = full_response.strip()
-    
-    # Upload audio to Supabase storage
+
+    notes = fix_inline_tables(notes)
+
+    # Upload audio to Supabase storage (dedicated audio bucket — its MIME
+    # allow-list accepts audio/* whereas the pdfs bucket only allows PDFs).
     source_id = None
     if supabase:
         audio_id = str(uuid.uuid4())
         try:
             storage_path = f"{user['id']}/{audio_id}{ext}"
-            supabase.storage.from_(PDF_BUCKET).upload(
+            supabase.storage.from_(AUDIO_BUCKET).upload(
                 path=storage_path,
                 file=audio_bytes,
                 file_options={"content-type": mime_type}
@@ -1117,9 +1225,7 @@ def create_chat_from_audio(
             'description': concept['description']
         })
     db.commit()
-    
-    print(f"\nSaved {len(saved_concepts)} key concepts")
-    
+
     return {
         "id": new_chat.id,
         "notes": notes,
@@ -1166,7 +1272,7 @@ def get_chat_audio(chat_id: int, db: Session = Depends(get_db), token: Optional[
         ext = chat.source_url or ".mp3"
         storage_path = f"{user_id}/{chat.source_id}{ext}"
         try:
-            result = supabase.storage.from_(PDF_BUCKET).create_signed_url(storage_path, 3600)
+            result = supabase.storage.from_(AUDIO_BUCKET).create_signed_url(storage_path, 3600)
             signed_url = result.get("signedURL") or result.get("signedUrl")
             if not signed_url:
                 raise HTTPException(status_code=404, detail="Audio file not found in storage")
@@ -1264,7 +1370,7 @@ def delete_user_chat(chat_id: int, user: user_dependency, db: Session = Depends(
         try:
             ext = chat.source_url or ".mp3"
             storage_path = f"{user['id']}/{chat.source_id}{ext}"
-            supabase.storage.from_(PDF_BUCKET).remove([storage_path])
+            supabase.storage.from_(AUDIO_BUCKET).remove([storage_path])
         except Exception as e:
             print(f"Warning: Failed to delete audio from storage: {e}")
     

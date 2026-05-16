@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { ApertureMini } from './Logo';
 import { api } from '@/lib/api';
@@ -21,9 +21,13 @@ interface QuizViewProps {
   chatId: number;
   videoTitle: string;
   sourceType?: string;
+  /** Optional deep-link: when this matches an existing quiz's id, the
+   *  view auto-starts that quiz as soon as data loads, skipping the
+   *  config/list screen. */
+  initialQuizId?: number;
 }
 
-export default function QuizView({ chatId }: QuizViewProps) {
+export default function QuizView({ chatId, initialQuizId }: QuizViewProps) {
   const [viewMode, setViewMode] = useState<'config' | 'quiz' | 'results'>('config');
 
   const [mcqCount, setMcqCount] = useState(5);
@@ -59,6 +63,38 @@ export default function QuizView({ chatId }: QuizViewProps) {
     loadConceptsAndQuizzes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
+
+  // Deep-link: capture `initialQuizId` into a ref on first render per
+  // chat. The parent (page.tsx) clears its `pendingDeepLink` state right
+  // after activeChat changes — synchronously, before our async data load
+  // finishes — so we can't rely on the prop still being there when
+  // `existingQuizzes` populates. The ref-snapshot survives that clear.
+  const targetQuizIdRef = useRef<{ chatId: number; quizId: number } | null>(null);
+  if (initialQuizId !== undefined && targetQuizIdRef.current?.chatId !== chatId) {
+    targetQuizIdRef.current = { chatId, quizId: initialQuizId };
+  }
+
+  const autoStartedForChatRef = useRef<number | null>(null);
+  useEffect(() => {
+    const target = targetQuizIdRef.current;
+    if (
+      !target ||
+      target.chatId !== chatId ||
+      autoStartedForChatRef.current === chatId ||
+      existingQuizzes.length === 0
+    ) {
+      return;
+    }
+    const quiz = existingQuizzes.find((q) => q.id === target.quizId);
+    if (!quiz) {
+      // Quiz might have been deleted between space-view fetch and chat
+      // mount — silently fall back to the config/list view.
+      autoStartedForChatRef.current = chatId;
+      return;
+    }
+    startQuiz(quiz);
+    autoStartedForChatRef.current = chatId;
+  }, [existingQuizzes, chatId]);
 
   const loadConceptsAndQuizzes = async () => {
     setIsLoadingConfig(true);
